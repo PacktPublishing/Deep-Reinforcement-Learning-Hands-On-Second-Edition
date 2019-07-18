@@ -1,0 +1,5 @@
+*.pdf
+*.log
+*.aux
+*.png
+!ch*/*.pdf

@@ -1,0 +1,13 @@
+numpy==1.15.4
+atari-py==0.1.6
+gym==0.10.9
+ptan==0.3
+opencv-python==3.4.3.18
+scipy==1.1.0
+torch==0.4.1
+torchvision==0.2.1
+tensorboard-pytorch==0.7.1
+tensorflow==1.12.0
+tensorboard==1.12.0
+pybullet==2.3.6
+matplotlib==3.0.2
