@@ -6,7 +6,7 @@ import cv2
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 import torchvision.utils as vutils
 
@@ -151,8 +151,8 @@ if __name__ == "__main__":
     dis_losses = []
     iter_no = 0
 
-    true_labels_v = torch.ones(BATCH_SIZE, dtype=torch.float32, device=device)
-    fake_labels_v = torch.zeros(BATCH_SIZE, dtype=torch.float32, device=device)
+    true_labels_v = torch.ones(BATCH_SIZE, device=device)
+    fake_labels_v = torch.zeros(BATCH_SIZE, device=device)
 
     for batch_v in iterate_batches(envs):
         # generate extra fake samples, input is 4D: batch, filters, x, y

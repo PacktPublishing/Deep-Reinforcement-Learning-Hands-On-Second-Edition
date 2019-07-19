@@ -6,8 +6,9 @@ import cv2
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
-from ignite.engine import Engine
+from ignite.engine import Engine, Events
+from ignite.metrics import RunningAverage
+from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
 import torchvision.utils as vutils
 
@@ -131,10 +132,6 @@ def iterate_batches(envs, batch_size=BATCH_SIZE):
             e.reset()
 
 
-def process_batch(trainer, batch):
-    pass
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action='store_true', help="Enable cuda computation")
@@ -150,21 +147,13 @@ if __name__ == "__main__":
     objective = nn.BCELoss()
     gen_optimizer = optim.Adam(params=net_gener.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))
     dis_optimizer = optim.Adam(params=net_discr.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))
-    writer = SummaryWriter()
 
-    gen_losses = []
-    dis_losses = []
-    iter_no = 0
+    true_labels_v = torch.ones(BATCH_SIZE, device=device)
+    fake_labels_v = torch.zeros(BATCH_SIZE, device=device)
 
-    true_labels_v = torch.ones(BATCH_SIZE, dtype=torch.float32, device=device)
-    fake_labels_v = torch.zeros(BATCH_SIZE, dtype=torch.float32, device=device)
-
-    engine = Engine()
-
-    for batch_v in iterate_batches(envs):
-        # generate extra fake samples, input is 4D: batch, filters, x, y
+    def process_batch(trainer, batch):
         gen_input_v = torch.FloatTensor(BATCH_SIZE, LATENT_VECTOR_SIZE, 1, 1).normal_(0, 1).to(device)
-        batch_v = batch_v.to(device)
+        batch_v = batch.to(device)
         gen_output_v = net_gener(gen_input_v)
 
         # train discriminator
@@ -174,23 +163,28 @@ if __name__ == "__main__":
         dis_loss = objective(dis_output_true_v, true_labels_v) + objective(dis_output_fake_v, fake_labels_v)
         dis_loss.backward()
         dis_optimizer.step()
-        dis_losses.append(dis_loss.item())
 
         # train generator
         gen_optimizer.zero_grad()
         dis_output_v = net_discr(gen_output_v)
-        gen_loss_v = objective(dis_output_v, true_labels_v)
-        gen_loss_v.backward()
+        gen_loss = objective(dis_output_v, true_labels_v)
+        gen_loss.backward()
         gen_optimizer.step()
-        gen_losses.append(gen_loss_v.item())
 
-        iter_no += 1
-        if iter_no % REPORT_EVERY_ITER == 0:
-            log.info("Iter %d: gen_loss=%.3e, dis_loss=%.3e", iter_no, np.mean(gen_losses), np.mean(dis_losses))
-            writer.add_scalar("gen_loss", np.mean(gen_losses), iter_no)
-            writer.add_scalar("dis_loss", np.mean(dis_losses), iter_no)
-            gen_losses = []
-            dis_losses = []
-        if iter_no % SAVE_IMAGE_EVERY_ITER == 0:
-            writer.add_image("fake", vutils.make_grid(gen_output_v.data[:64], normalize=True), iter_no)
-            writer.add_image("real", vutils.make_grid(batch_v.data[:64], normalize=True), iter_no)
+        if trainer.state.iteration % SAVE_IMAGE_EVERY_ITER == 0:
+            fake_img = vutils.make_grid(gen_output_v.data[:64], normalize=True)
+            trainer.state.tb.add_image("fake", fake_img, trainer.state.iteration)
+            real_img = vutils.make_grid(batch_v.data[:64], normalize=True)
+            trainer.tb.add_image("real", real_img, trainer.state.iteration)
+        return dis_loss.item(), gen_loss.item()
+
+    with tb_logger.TensorboardLogger(log_dir=None) as tb:
+        engine = Engine(process_batch)
+        engine.tb = tb
+        RunningAverage(output_transform=lambda out: out[0]).attach(engine, "avg_loss_gen")
+        RunningAverage(output_transform=lambda out: out[1]).attach(engine, "avg_loss_dis")
+
+        handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss_gen', 'avg_loss_dis'])
+        tb.attach(engine, log_handler=handler, event_name=Events.ITERATION_COMPLETED)
+
+    engine.run(data=iterate_batches(envs))

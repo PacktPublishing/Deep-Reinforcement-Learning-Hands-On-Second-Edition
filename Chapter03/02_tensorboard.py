@@ -1,5 +1,5 @@
 import math
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 
 if __name__ == "__main__":
