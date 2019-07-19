@@ -173,9 +173,10 @@ if __name__ == "__main__":
 
         if trainer.state.iteration % SAVE_IMAGE_EVERY_ITER == 0:
             fake_img = vutils.make_grid(gen_output_v.data[:64], normalize=True)
-            trainer.tb.add_image("fake", fake_img, trainer.state.iteration)
+            trainer.tb.writer.add_image("fake", fake_img, trainer.state.iteration)
             real_img = vutils.make_grid(batch_v.data[:64], normalize=True)
-            trainer.tb.add_image("real", real_img, trainer.state.iteration)
+            trainer.tb.writer.add_image("real", real_img, trainer.state.iteration)
+            trainer.tb.writer.flush()
         return dis_loss.item(), gen_loss.item()
 
     engine = Engine(process_batch)
