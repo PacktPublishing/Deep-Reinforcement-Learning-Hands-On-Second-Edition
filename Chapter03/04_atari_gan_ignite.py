@@ -173,18 +173,24 @@ if __name__ == "__main__":
 
         if trainer.state.iteration % SAVE_IMAGE_EVERY_ITER == 0:
             fake_img = vutils.make_grid(gen_output_v.data[:64], normalize=True)
-            trainer.state.tb.add_image("fake", fake_img, trainer.state.iteration)
+            trainer.tb.add_image("fake", fake_img, trainer.state.iteration)
             real_img = vutils.make_grid(batch_v.data[:64], normalize=True)
             trainer.tb.add_image("real", real_img, trainer.state.iteration)
         return dis_loss.item(), gen_loss.item()
 
-    with tb_logger.TensorboardLogger(log_dir=None) as tb:
-        engine = Engine(process_batch)
-        engine.tb = tb
-        RunningAverage(output_transform=lambda out: out[0]).attach(engine, "avg_loss_gen")
-        RunningAverage(output_transform=lambda out: out[1]).attach(engine, "avg_loss_dis")
+    engine = Engine(process_batch)
+    tb = tb_logger.TensorboardLogger(log_dir=None)
+    engine.tb = tb
+    RunningAverage(output_transform=lambda out: out[0]).attach(engine, "avg_loss_gen")
+    RunningAverage(output_transform=lambda out: out[1]).attach(engine, "avg_loss_dis")
 
-        handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss_gen', 'avg_loss_dis'])
-        tb.attach(engine, log_handler=handler, event_name=Events.ITERATION_COMPLETED)
+    handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss_gen', 'avg_loss_dis'])
+    tb.attach(engine, log_handler=handler, event_name=Events.ITERATION_COMPLETED)
+
+    @engine.on(Events.ITERATION_COMPLETED)
+    def log_losses(trainer):
+        if trainer.state.iteration % REPORT_EVERY_ITER == 0:
+            log.info("%d: gen_loss=%.3f, dis_loss=%.3f", trainer.state.iteration,
+                     trainer.state.metrics['avg_loss_gen'], trainer.state.metrics['avg_loss_dis'])
 
     engine.run(data=iterate_batches(envs))
