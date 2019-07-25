@@ -7,3 +7,4 @@ torch==1.1.0
 torchvision==0.3.0
 pytorch-ignite==0.2.0
 tensorboardX==1.8
+tensorflow==1.14.0

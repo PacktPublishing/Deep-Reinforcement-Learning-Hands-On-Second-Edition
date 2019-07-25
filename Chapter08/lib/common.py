@@ -3,10 +3,11 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
+from types import SimpleNamespace
 
 
 HYPERPARAMS = {
-    'pong': {
+    'pong': SimpleNamespace(**{
         'env_name':         "PongNoFrameskip-v4",
         'stop_reward':      18.0,
         'run_name':         'pong',
@@ -19,8 +20,8 @@ HYPERPARAMS = {
         'learning_rate':    0.0001,
         'gamma':            0.99,
         'batch_size':       32
-    },
-    'breakout-small': {
+    }),
+    'breakout-small': SimpleNamespace(**{
         'env_name':         "BreakoutNoFrameskip-v4",
         'stop_reward':      500.0,
         'run_name':         'breakout-small',
@@ -33,8 +34,8 @@ HYPERPARAMS = {
         'learning_rate':    0.0001,
         'gamma':            0.99,
         'batch_size':       64
-    },
-    'breakout': {
+    }),
+    'breakout': SimpleNamespace(**{
         'env_name':         "BreakoutNoFrameskip-v4",
         'stop_reward':      500.0,
         'run_name':         'breakout',
@@ -47,8 +48,8 @@ HYPERPARAMS = {
         'learning_rate':    0.00025,
         'gamma':            0.99,
         'batch_size':       32
-    },
-    'invaders': {
+    }),
+    'invaders': SimpleNamespace(**{
         'env_name': "SpaceInvadersNoFrameskip-v4",
         'stop_reward': 500.0,
         'run_name': 'breakout',
@@ -61,7 +62,7 @@ HYPERPARAMS = {
         'learning_rate': 0.00025,
         'gamma': 0.99,
         'batch_size': 32
-    },
+    }),
 }
 
 
@@ -81,20 +82,14 @@ def unpack_batch(batch):
            np.array(dones, dtype=np.uint8), np.array(last_states, copy=False)
 
 
-def calc_loss_dqn(batch, net, tgt_net, gamma, cuda=False, cuda_async=False):
+def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu", cuda_async=False):
     states, actions, rewards, dones, next_states = unpack_batch(batch)
 
-    states_v = torch.tensor(states)
-    next_states_v = torch.tensor(next_states)
-    actions_v = torch.tensor(actions)
-    rewards_v = torch.tensor(rewards)
-    done_mask = torch.ByteTensor(dones)
-    if cuda:
-        states_v = states_v.cuda(non_blocking=cuda_async)
-        next_states_v = next_states_v.cuda(non_blocking=cuda_async)
-        actions_v = actions_v.cuda(non_blocking=cuda_async)
-        rewards_v = rewards_v.cuda(non_blocking=cuda_async)
-        done_mask = done_mask.cuda(non_blocking=cuda_async)
+    states_v = torch.tensor(states).to(device, cuda_async)
+    next_states_v = torch.tensor(next_states).to(device, cuda_async)
+    actions_v = torch.tensor(actions).to(device, cuda_async)
+    rewards_v = torch.tensor(rewards).to(device, cuda_async)
+    done_mask = torch.ByteTensor(dones).to(device, cuda_async)
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
     next_state_values = tgt_net(next_states_v).max(1)[0]
