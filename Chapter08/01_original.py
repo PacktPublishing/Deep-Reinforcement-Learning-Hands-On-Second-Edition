@@ -69,8 +69,8 @@ if __name__ == "__main__":
     logdir = f"runs/{datetime.now().isoformat()}-{params.run_name}-01_original"
     tb = tb_logger.TensorboardLogger(log_dir=logdir)
     RunningAverage(output_transform=lambda v: v['loss']).attach(engine, "avg_loss")
-    RunningAverage(output_transform=lambda v: v.get('reward')).attach(engine, "avg_reward")
-    handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss'],
+    RunningAverage(output_transform=lambda v: v.get('reward', 0)).attach(engine, "avg_reward")
+    handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss', 'avg_reward'],
                                       output_transform=lambda a: a)
     tb.attach(engine, log_handler=handler, event_name=Events.ITERATION_COMPLETED)
     engine.run(batch_generator(buffer, params.replay_initial, params.batch_size))
