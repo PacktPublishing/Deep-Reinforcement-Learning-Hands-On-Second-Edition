@@ -85,11 +85,11 @@ def unpack_batch(batch):
 def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu", cuda_async=False):
     states, actions, rewards, dones, next_states = unpack_batch(batch)
 
-    states_v = torch.tensor(states).to(device, cuda_async)
-    next_states_v = torch.tensor(next_states).to(device, cuda_async)
-    actions_v = torch.tensor(actions).to(device, cuda_async)
-    rewards_v = torch.tensor(rewards).to(device, cuda_async)
-    done_mask = torch.ByteTensor(dones).to(device, cuda_async)
+    states_v = torch.tensor(states).to(device, non_blocking=cuda_async)
+    next_states_v = torch.tensor(next_states).to(device, non_blocking=cuda_async)
+    actions_v = torch.tensor(actions).to(device, non_blocking=cuda_async)
+    rewards_v = torch.tensor(rewards).to(device, non_blocking=cuda_async)
+    done_mask = torch.ByteTensor(dones).to(device, non_blocking=cuda_async)
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
     next_state_values = tgt_net(next_states_v).max(1)[0]

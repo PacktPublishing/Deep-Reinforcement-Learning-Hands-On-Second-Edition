@@ -3,6 +3,7 @@ import gym
 import ptan
 from datetime import datetime
 import argparse
+import numpy as np
 
 import torch
 import torch.optim as optim
@@ -54,15 +55,21 @@ if __name__ == "__main__":
         epsilon_tracker.frame(engine.state.iteration)
         if engine.state.iteration % params.target_net_sync == 0:
             tgt_net.sync()
-        return {
+        result = {
             "loss": loss_v.item(),
             "epsilon": selector.epsilon,
         }
+        rewards = exp_source.pop_total_rewards()
+        if rewards:
+            print("%d: episode done, reward=%.2f" % (engine.state.iteration, rewards[0]))
+            result['reward'] = np.mean(rewards)
+        return result
 
     engine = Engine(process_batch)
     logdir = f"runs/{datetime.now().isoformat()}-{params.run_name}-01_original"
     tb = tb_logger.TensorboardLogger(log_dir=logdir)
     RunningAverage(output_transform=lambda v: v['loss']).attach(engine, "avg_loss")
+    RunningAverage(output_transform=lambda v: v['reward']).attach(engine, "avg_reward")
     handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss'],
                                       output_transform=lambda a: a)
     tb.attach(engine, log_handler=handler, event_name=Events.ITERATION_COMPLETED)
