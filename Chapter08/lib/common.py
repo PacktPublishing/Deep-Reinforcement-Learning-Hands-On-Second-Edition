@@ -138,9 +138,9 @@ class RewardTracker:
 class EpsilonTracker:
     def __init__(self, epsilon_greedy_selector, params):
         self.epsilon_greedy_selector = epsilon_greedy_selector
-        self.epsilon_start = params['epsilon_start']
-        self.epsilon_final = params['epsilon_final']
-        self.epsilon_frames = params['epsilon_frames']
+        self.epsilon_start = params.epsilon_start
+        self.epsilon_final = params.epsilon_final
+        self.epsilon_frames = params.epsilon_frames
         self.frame(0)
 
     def frame(self, frame):
