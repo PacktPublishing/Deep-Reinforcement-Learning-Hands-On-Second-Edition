@@ -3,6 +3,7 @@ import gym
 import ptan
 from datetime import datetime, timedelta
 import argparse
+import random
 
 import torch
 import torch.optim as optim
@@ -23,6 +24,8 @@ def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
 
 
 if __name__ == "__main__":
+    random.seed(common.SEED)
+    torch.manual_seed(common.SEED)
     params = common.HYPERPARAMS['pong']
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action="store_true", help="Enable cuda")
@@ -31,6 +34,7 @@ if __name__ == "__main__":
 
     env = gym.make(params.env_name)
     env = ptan.common.wrappers.wrap_dqn(env)
+    env.seed(common.SEED)
 
     net = dqn_model.DQN(env.observation_space.shape, env.action_space.n).to(device)
 
@@ -65,9 +69,10 @@ if __name__ == "__main__":
 
     @engine.on(ignite.EndOfEpisodeHandler.Events.EPISODE_COMPLETED)
     def episode_completed(trainer: Engine):
-        print("Episode %d: reward=%s, steps=%s, speed=%.3f frames/s" % (
+        print("Episode %d: reward=%s, steps=%s, speed=%.3f frames/s, elapsed=%s" % (
             trainer.state.episode, trainer.state.episode_reward,
-            trainer.state.episode_steps, trainer.state.metrics.get('fps', 0)))
+            trainer.state.episode_steps, trainer.state.metrics.get('fps', 0),
+            timedelta(seconds=trainer.state.metrics.get('time_passed', 0))))
 
     @engine.on(ignite.EndOfEpisodeHandler.Events.BOUND_REWARD_REACHED)
     def game_solved(trainer: Engine):

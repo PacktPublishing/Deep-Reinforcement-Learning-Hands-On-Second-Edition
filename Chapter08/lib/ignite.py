@@ -1,5 +1,6 @@
 import ptan
 import enum
+import numpy as np
 from typing import Optional
 from ignite.engine import Engine, State
 from ignite.engine import Events as EngineEvents
@@ -58,11 +59,12 @@ class EpisodeFPSHandler:
         engine.add_event_handler(EndOfEpisodeHandler.Events.EPISODE_COMPLETED, self)
 
     def __call__(self, engine: Engine):
+        t_val = self._timer.value()
         if engine.state.iteration == 1:
             self._timer.reset()
         else:
-            engine.state.metrics['fps'] = 1.0/self._timer.value()
-            engine.state.metrics['time_passed'] = self._timer.total
+            engine.state.metrics['fps'] = 1./t_val
+        engine.state.metrics['time_passed'] = t_val * self._timer.step_count
 
 
 class PeriodicEvents:

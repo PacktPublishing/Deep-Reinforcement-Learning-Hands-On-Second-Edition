@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from types import SimpleNamespace
 
+SEED = 1234
 
 HYPERPARAMS = {
     'pong': SimpleNamespace(**{
