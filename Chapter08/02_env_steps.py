@@ -14,14 +14,16 @@ from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
 from lib import dqn_model, common, ignite
 
-NAME = "01_original"
+
+STEPS = 2
+NAME = "02_env_steps"
 
 
 def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
                     initial: int, batch_size: int):
     buffer.populate(initial)
     while True:
-        buffer.populate(1)
+        buffer.populate(STEPS)
         yield buffer.sample(batch_size)
 
 
@@ -38,6 +40,7 @@ if __name__ == "__main__":
     env = ptan.common.wrappers.wrap_dqn(env)
     env.seed(common.SEED)
 
+    params.batch_size *= STEPS
     net = dqn_model.DQN(env.observation_space.shape, env.action_space.n).to(device)
 
     tgt_net = ptan.agent.TargetNet(net)
@@ -67,7 +70,7 @@ if __name__ == "__main__":
 
     engine = Engine(process_batch)
     ignite.EndOfEpisodeHandler(exp_source, bound_avg_reward=17.0).attach(engine)
-    ignite.EpisodeFPSHandler().attach(engine)
+    ignite.EpisodeFPSHandler(fps_mul=STEPS).attach(engine)
 
     @engine.on(ignite.EndOfEpisodeHandler.Events.EPISODE_COMPLETED)
     def episode_completed(trainer: Engine):
@@ -83,7 +86,7 @@ if __name__ == "__main__":
             trainer.state.episode, trainer.state.iteration))
         trainer.should_terminate = True
 
-    logdir = f"runs/{datetime.now().isoformat(timespec='minutes')}-{params.run_name}-{NAME}"
+    logdir = f"runs/{datetime.now().isoformat(timespec='minutes')}-{params.run_name}-{NAME}={STEPS}"
     tb = tb_logger.TensorboardLogger(log_dir=logdir)
     RunningAverage(output_transform=lambda v: v['loss']).attach(engine, "avg_loss")
 

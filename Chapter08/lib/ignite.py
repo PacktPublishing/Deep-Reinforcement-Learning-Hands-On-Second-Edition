@@ -51,8 +51,9 @@ class EndOfEpisodeHandler:
 
 
 class EpisodeFPSHandler:
-    def __init__(self):
+    def __init__(self, fps_mul: float = 1.0):
         self._timer = Timer(average=True)
+        self._fps_mul = fps_mul
 
     def attach(self, engine: Engine):
         self._timer.attach(engine, step=EngineEvents.ITERATION_COMPLETED)
@@ -63,7 +64,7 @@ class EpisodeFPSHandler:
         if engine.state.iteration == 1:
             self._timer.reset()
         else:
-            engine.state.metrics['fps'] = 1./t_val
+            engine.state.metrics['fps'] = self._fps_mul / t_val
         engine.state.metrics['time_passed'] = t_val * self._timer.step_count
 
 

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from types import SimpleNamespace
 
-SEED = 1234
+SEED = 123
 
 HYPERPARAMS = {
     'pong': SimpleNamespace(**{
@@ -93,8 +93,9 @@ def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu", cuda_async=False):
     done_mask = torch.ByteTensor(dones).to(device, non_blocking=cuda_async)
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
-    next_state_values = tgt_net(next_states_v).max(1)[0]
-    next_state_values[done_mask] = 0.0
+    with torch.no_grad():
+        next_state_values = tgt_net(next_states_v).max(1)[0]
+        next_state_values[done_mask] = 0.0
 
     expected_state_action_values = next_state_values.detach() * gamma + rewards_v
     return nn.MSELoss()(state_action_values, expected_state_action_values)

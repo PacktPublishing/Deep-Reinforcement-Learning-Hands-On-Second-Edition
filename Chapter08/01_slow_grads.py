@@ -7,6 +7,7 @@ import random
 
 import torch
 import torch.optim as optim
+import torch.nn as nn
 
 from ignite.engine import Engine
 from ignite.metrics import RunningAverage
@@ -14,7 +15,7 @@ from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
 from lib import dqn_model, common, ignite
 
-NAME = "01_original"
+NAME = "01_slow_grads"
 
 
 def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
@@ -23,6 +24,47 @@ def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
     while True:
         buffer.populate(1)
         yield buffer.sample(batch_size)
+
+
+class DQNAgent(ptan.agent.BaseAgent):
+    """
+    DQNAgent is a memoryless DQN agent which calculates Q values
+    from the observations and  converts them into the actions using action_selector
+    """
+    def __init__(self, dqn_model, action_selector, device="cpu", preprocessor=ptan.agent.default_states_preprocessor):
+        self.dqn_model = dqn_model
+        self.action_selector = action_selector
+        self.preprocessor = preprocessor
+        self.device = device
+
+    def __call__(self, states, agent_states=None):
+        if agent_states is None:
+            agent_states = [None] * len(states)
+        if self.preprocessor is not None:
+            states = self.preprocessor(states)
+            if torch.is_tensor(states):
+                states = states.to(self.device)
+        q_v = self.dqn_model(states)
+        q = q_v.data.cpu().numpy()
+        actions = self.action_selector(q)
+        return actions, agent_states
+
+
+def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu", cuda_async=False):
+    states, actions, rewards, dones, next_states = common.unpack_batch(batch)
+
+    states_v = torch.tensor(states).to(device, non_blocking=cuda_async)
+    next_states_v = torch.tensor(next_states).to(device, non_blocking=cuda_async)
+    actions_v = torch.tensor(actions).to(device, non_blocking=cuda_async)
+    rewards_v = torch.tensor(rewards).to(device, non_blocking=cuda_async)
+    done_mask = torch.ByteTensor(dones).to(device, non_blocking=cuda_async)
+
+    state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
+    next_state_values = tgt_net(next_states_v).max(1)[0]
+    next_state_values[done_mask] = 0.0
+
+    expected_state_action_values = next_state_values.detach() * gamma + rewards_v
+    return nn.MSELoss()(state_action_values, expected_state_action_values)
 
 
 if __name__ == "__main__":
@@ -43,7 +85,7 @@ if __name__ == "__main__":
     tgt_net = ptan.agent.TargetNet(net)
     selector = ptan.actions.EpsilonGreedyActionSelector(epsilon=params.epsilon_start)
     epsilon_tracker = common.EpsilonTracker(selector, params)
-    agent = ptan.agent.DQNAgent(net, selector, device=device)
+    agent = DQNAgent(net, selector, device=device)
 
     exp_source = ptan.experience.ExperienceSourceFirstLast(
         env, agent, gamma=params.gamma, steps_count=1)
@@ -53,8 +95,8 @@ if __name__ == "__main__":
 
     def process_batch(engine, batch):
         optimizer.zero_grad()
-        loss_v = common.calc_loss_dqn(batch, net, tgt_net.target_model,
-                                      gamma=params.gamma, device=device)
+        loss_v = calc_loss_dqn(batch, net, tgt_net.target_model,
+                               gamma=params.gamma, device=device)
         loss_v.backward()
         optimizer.step()
         epsilon_tracker.frame(engine.state.iteration)
