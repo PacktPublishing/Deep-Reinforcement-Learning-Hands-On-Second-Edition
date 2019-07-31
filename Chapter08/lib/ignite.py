@@ -1,15 +1,10 @@
 import ptan
 import enum
-import numpy as np
+import time
 from typing import Optional
 from ignite.engine import Engine, State
 from ignite.engine import Events as EngineEvents
 from ignite.handlers.timing import Timer
-
-# TODO:
-# --fire event on Episode completed--
-# --write reward and steps to TB--
-# calculate smoothed metric of reward and steps
 
 
 class EndOfEpisodeHandler:
@@ -54,6 +49,7 @@ class EpisodeFPSHandler:
     def __init__(self, fps_mul: float = 1.0):
         self._timer = Timer(average=True)
         self._fps_mul = fps_mul
+        self._started_ts = time.time()
 
     def attach(self, engine: Engine):
         self._timer.attach(engine, step=EngineEvents.ITERATION_COMPLETED)
@@ -61,11 +57,10 @@ class EpisodeFPSHandler:
 
     def __call__(self, engine: Engine):
         t_val = self._timer.value()
-        if engine.state.iteration == 1:
-            self._timer.reset()
-        else:
+        if engine.state.iteration > 1:
             engine.state.metrics['fps'] = self._fps_mul / t_val
-        engine.state.metrics['time_passed'] = t_val * self._timer.step_count
+        engine.state.metrics['time_passed'] = time.time() - self._started_ts
+        self._timer.reset()
 
 
 class PeriodicEvents:
