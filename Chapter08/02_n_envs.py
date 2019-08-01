@@ -17,7 +17,7 @@ from ignite.contrib.handlers import tensorboard_logger as tb_logger
 from lib import dqn_model, common
 
 
-NAME = "03_n_envs"
+NAME = "02_n_envs"
 
 
 def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
