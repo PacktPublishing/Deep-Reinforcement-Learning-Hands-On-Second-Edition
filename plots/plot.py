@@ -43,16 +43,17 @@ if __name__ == "__main__":
 
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
-    ax2 = ax1.twiny()
+    if not args.legend:
+        ax2 = ax1.twiny()
 
-    for (hours, steps, vals), style in zip(data, ('-', '--', ':', '-.')):
-        ax1.plot(steps, vals, color='black', linewidth=.8, linestyle=style)
+    for (hours, steps, vals), style in zip(data, ('-', ':', '--', '-.')):
+        ax1.plot(hours, vals, color='black', linewidth=.8, linestyle=style)
 
-    ax1.grid(True, axis='y')
+    ax1.grid(True, axis='both')
     if args.legend:
         ax1.legend(args.legend, loc='upper left', fancybox=True)
-    ax1.set_xlabel(args.x)
-    ax1.set_xlim(0, max_steps)
+    ax1.set_xlabel("Hours")
+    ax1.set_xlim(0, max_hours)
     ax1.set_ylabel(args.y)
 
     def label_formatter(x, pos):
@@ -64,14 +65,16 @@ if __name__ == "__main__":
         else:
             return ballpark.business(v, precision=3)
 
-    ax1.xaxis.set_major_formatter(FuncFormatter(label_formatter))
 
-    new_tick_locations = np.linspace(0, max_hours, num=10)
+    if not args.legend:
+        ax2.xaxis.set_major_formatter(FuncFormatter(label_formatter))
 
-    ax2.set_xlim(0, max_hours)
-    ax2.set_xticks(new_tick_locations)
-    ax2.set_xticklabels(["%.1f" % v for v in new_tick_locations])
-    ax2.set_xlabel(r"Hours")
-    ax2.grid(True, axis='both')
+#    new_tick_locations = np.linspace(0, max_steps, num=10)
+
+        ax2.set_xlim(0, max_steps)
+#    ax2.set_xticks(new_tick_locations)
+#    ax2.set_xticklabels(["%.1f" % v for v in new_tick_locations])
+        ax2.set_xlabel(args.x)
+        ax2.grid(True, axis='y')
     plt.savefig(args.output)
 #    plt.show()

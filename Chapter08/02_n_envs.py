@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
     # write to tensorboard every 100 iterations
     ptan_ignite.PeriodicEvents().attach(engine)
-    handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss', 'fps'],
+    handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss', 'avg_fps'],
                                       output_transform=lambda a: a)
     tb.attach(engine, log_handler=handler, event_name=ptan_ignite.PeriodEvents.ITERS_100_COMPLETED)
 
