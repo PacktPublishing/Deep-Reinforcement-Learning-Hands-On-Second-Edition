@@ -1,5 +1,3 @@
-import sys
-import time
 import numpy as np
 import torch
 import torch.nn as nn
@@ -83,14 +81,14 @@ def unpack_batch(batch):
            np.array(dones, dtype=np.uint8), np.array(last_states, copy=False)
 
 
-def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu", cuda_async=False):
+def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu"):
     states, actions, rewards, dones, next_states = unpack_batch(batch)
 
-    states_v = torch.tensor(states).to(device, non_blocking=cuda_async)
-    next_states_v = torch.tensor(next_states).to(device, non_blocking=cuda_async)
-    actions_v = torch.tensor(actions).to(device, non_blocking=cuda_async)
-    rewards_v = torch.tensor(rewards).to(device, non_blocking=cuda_async)
-    done_mask = torch.ByteTensor(dones).to(device, non_blocking=cuda_async)
+    states_v = torch.tensor(states).to(device)
+    next_states_v = torch.tensor(next_states).to(device)
+    actions_v = torch.tensor(actions).to(device)
+    rewards_v = torch.tensor(rewards).to(device)
+    done_mask = torch.ByteTensor(dones).to(device)
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
     with torch.no_grad():
@@ -99,42 +97,6 @@ def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu", cuda_async=False):
 
     expected_state_action_values = next_state_values.detach() * gamma + rewards_v
     return nn.MSELoss()(state_action_values, expected_state_action_values)
-
-
-class RewardTracker:
-    def __init__(self, writer, stop_reward):
-        self.writer = writer
-        self.stop_reward = stop_reward
-
-    def __enter__(self):
-        self.ts = time.time()
-        self.ts_frame = 0
-        self.total_rewards = []
-        return self
-
-    def __exit__(self, *args):
-        self.writer.close()
-
-    def reward(self, reward, frame, epsilon=None):
-        self.total_rewards.append(reward)
-        speed = (frame - self.ts_frame) / (time.time() - self.ts)
-        self.ts_frame = frame
-        self.ts = time.time()
-        mean_reward = np.mean(self.total_rewards[-100:])
-        epsilon_str = "" if epsilon is None else ", eps %.2f" % epsilon
-        print("%d: done %d games, mean reward %.3f, speed %.2f f/s%s" % (
-            frame, len(self.total_rewards), mean_reward, speed, epsilon_str
-        ))
-        sys.stdout.flush()
-        if epsilon is not None:
-            self.writer.add_scalar("epsilon", epsilon, frame)
-        self.writer.add_scalar("speed", speed, frame)
-        self.writer.add_scalar("reward_100", mean_reward, frame)
-        self.writer.add_scalar("reward", reward, frame)
-        if mean_reward > self.stop_reward:
-            print("Solved in %d frames!" % frame)
-            return True
-        return False
 
 
 class EpsilonTracker:

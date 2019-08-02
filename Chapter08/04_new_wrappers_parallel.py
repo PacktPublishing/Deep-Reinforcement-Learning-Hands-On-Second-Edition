@@ -15,18 +15,21 @@ from ignite.engine import Engine
 from ignite.metrics import RunningAverage
 from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
-from lib import dqn_model, common
+from lib import dqn_model, common, atari_wrappers
 
 BATCH_MUL = 4
-NAME = "03_parallel"
+NAME = "04_new_wrappers_parallel"
 
 EpisodeEnded = collections.namedtuple(
     'EpisodeEnded', field_names=('reward', 'steps', 'epsilon'))
 
 
 def play_func(params, net, cuda, exp_queue):
-    env = gym.make(params.env_name)
-    env = ptan.common.wrappers.wrap_dqn(env)
+    env = atari_wrappers.make_atari(params.env_name, skip_noop=True,
+                                    skip_maxskip=True)
+    env = atari_wrappers.wrap_deepmind(env, pytorch_img=True,
+                                       frame_stack=True,
+                                       frame_stack_count=2)
     env.seed(common.SEED)
     device = torch.device("cuda" if cuda else "cpu")
 

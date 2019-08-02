@@ -15,9 +15,10 @@ from ignite.metrics import RunningAverage
 from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
 from lib import dqn_model, common
+from lib import atari_wrappers
 
 
-NAME = "02_n_envs"
+NAME = "04_wrappers_n_env"
 
 
 def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
@@ -40,8 +41,8 @@ if __name__ == "__main__":
 
     envs = []
     for _ in range(args.envs):
-        env = gym.make(params.env_name)
-        env = ptan.common.wrappers.wrap_dqn(env)
+        env = atari_wrappers.make_atari(params.env_name, skip_noop=True, skip_maxskip=True)
+        env = atari_wrappers.wrap_deepmind(env, pytorch_img=True, frame_stack=True, frame_stack_count=2)
         env.seed(common.SEED)
         envs.append(env)
 
