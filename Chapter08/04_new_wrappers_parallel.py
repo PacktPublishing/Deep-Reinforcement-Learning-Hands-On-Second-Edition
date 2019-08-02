@@ -88,8 +88,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
-    env = gym.make(params.env_name)
-    env = ptan.common.wrappers.wrap_dqn(env)
+    env = atari_wrappers.make_atari(params.env_name, skip_noop=True,
+                                    skip_maxskip=True)
+    env = atari_wrappers.wrap_deepmind(env, pytorch_img=True,
+                                       frame_stack=True,
+                                       frame_stack_count=2)
 
     net = dqn_model.DQN(env.observation_space.shape, env.action_space.n).to(device)
     tgt_net = ptan.agent.TargetNet(net)
