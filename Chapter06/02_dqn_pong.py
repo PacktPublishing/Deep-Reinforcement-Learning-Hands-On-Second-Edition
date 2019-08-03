@@ -163,12 +163,13 @@ if __name__ == "__main__":
             writer.add_scalar("speed", speed, frame_idx)
             writer.add_scalar("reward_100", m_reward, frame_idx)
             writer.add_scalar("reward", reward, frame_idx)
-            if best_m_reward is None or best_m_reward < mean_reward:
-                torch.save(net.state_dict(), args.env + "-best.dat")
+            if best_m_reward is None or best_m_reward < m_reward:
+                torch.save(net.state_dict(), args.env +
+                           "-best_%.0f.dat" % m_reward)
                 if best_m_reward is not None:
-                    print("Bestreward updated %.3f -> %.3f" % (
+                    print("Best reward updated %.3f -> %.3f, saved" % (
                         best_m_reward, m_reward))
-                best_mean_reward = m_reward
+                best_m_reward = m_reward
             if m_reward > args.reward:
                 print("Solved in %d frames!" % frame_idx)
                 break
