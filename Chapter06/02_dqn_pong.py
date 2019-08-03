@@ -15,7 +15,7 @@ from tensorboardX import SummaryWriter
 
 
 DEFAULT_ENV_NAME = "PongNoFrameskip-v4"
-MEAN_REWARD_BOUND = 19.5
+MEAN_REWARD_BOUND = 19
 
 GAMMA = 0.99
 BATCH_SIZE = 32
@@ -115,10 +115,6 @@ if __name__ == "__main__":
     parser.add_argument("--env", default=DEFAULT_ENV_NAME,
                         help="Name of the environment, default=" +
                              DEFAULT_ENV_NAME)
-    parser.add_argument("--reward", type=float,
-                        default=MEAN_REWARD_BOUND,
-                        help="Reward bound for stop, default=%.2f" %
-                             MEAN_REWARD_BOUND)
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
@@ -170,7 +166,7 @@ if __name__ == "__main__":
                     print("Best reward updated %.3f -> %.3f, saved" % (
                         best_m_reward, m_reward))
                 best_m_reward = m_reward
-            if m_reward > args.reward:
+            if m_reward > MEAN_REWARD_BOUND:
                 print("Solved in %d frames!" % frame_idx)
                 break
 
