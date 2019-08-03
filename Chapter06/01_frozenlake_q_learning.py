@@ -20,7 +20,7 @@ class Agent:
         old_state = self.state
         new_state, reward, is_done, _ = self.env.step(action)
         self.state = self.env.reset() if is_done else new_state
-        return (old_state, action, reward, new_state)
+        return old_state, action, reward, new_state
 
     def best_value_and_action(self, state):
         best_value, best_action = None, None
@@ -33,9 +33,9 @@ class Agent:
 
     def value_update(self, s, a, r, next_s):
         best_v, _ = self.best_value_and_action(next_s)
-        new_val = r + GAMMA * best_v
-        old_val = self.values[(s, a)]
-        self.values[(s, a)] = old_val * (1-ALPHA) + new_val * ALPHA
+        new_v = r + GAMMA * best_v
+        old_v = self.values[(s, a)]
+        self.values[(s, a)] = old_v * (1-ALPHA) + new_v * ALPHA
 
     def play_episode(self, env):
         total_reward = 0.0

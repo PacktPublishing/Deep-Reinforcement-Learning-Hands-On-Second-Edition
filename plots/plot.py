@@ -41,6 +41,20 @@ if __name__ == "__main__":
                     max_hours = h
         data.append([hours, steps, vals])
 
+    x_label = "Hours"
+    if max_hours < 2/60:
+        x_label = "Seconds"
+        for hours, _, _ in data:
+            for idx, h in enumerate(hours):
+                hours[idx] = h * 3600.0
+        max_hours *= 3600
+    if max_hours < 0.2:
+        x_label = "Minutes"
+        for hours, _, _ in data:
+            for idx, h in enumerate(hours):
+                hours[idx] = h * 60.0
+        max_hours *= 60
+
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
     if not args.legend:
@@ -52,7 +66,7 @@ if __name__ == "__main__":
     ax1.grid(True, axis='both')
     if args.legend:
         ax1.legend(args.legend, loc='upper left', fancybox=True)
-    ax1.set_xlabel("Hours")
+    ax1.set_xlabel(x_label)
     ax1.set_xlim(0, max_hours)
     ax1.set_ylabel(args.y)
 
