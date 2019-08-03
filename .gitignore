@@ -2,3 +2,4 @@
 .idea
 runs
 __pycache__
+*.dat

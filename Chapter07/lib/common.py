@@ -3,10 +3,12 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
+from types import SimpleNamespace
 
+SEED = 123
 
 HYPERPARAMS = {
-    'pong': {
+    'pong': SimpleNamespace(**{
         'env_name':         "PongNoFrameskip-v4",
         'stop_reward':      18.0,
         'run_name':         'pong',
@@ -19,8 +21,8 @@ HYPERPARAMS = {
         'learning_rate':    0.0001,
         'gamma':            0.99,
         'batch_size':       32
-    },
-    'breakout-small': {
+    }),
+    'breakout-small': SimpleNamespace(**{
         'env_name':         "BreakoutNoFrameskip-v4",
         'stop_reward':      500.0,
         'run_name':         'breakout-small',
@@ -33,8 +35,8 @@ HYPERPARAMS = {
         'learning_rate':    0.0001,
         'gamma':            0.99,
         'batch_size':       64
-    },
-    'breakout': {
+    }),
+    'breakout': SimpleNamespace(**{
         'env_name':         "BreakoutNoFrameskip-v4",
         'stop_reward':      500.0,
         'run_name':         'breakout',
@@ -47,8 +49,8 @@ HYPERPARAMS = {
         'learning_rate':    0.00025,
         'gamma':            0.99,
         'batch_size':       32
-    },
-    'invaders': {
+    }),
+    'invaders': SimpleNamespace(**{
         'env_name': "SpaceInvadersNoFrameskip-v4",
         'stop_reward': 500.0,
         'run_name': 'breakout',
@@ -61,7 +63,7 @@ HYPERPARAMS = {
         'learning_rate': 0.00025,
         'gamma': 0.99,
         'batch_size': 32
-    },
+    }),
 }
 
 
@@ -91,55 +93,20 @@ def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu"):
     done_mask = torch.ByteTensor(dones).to(device)
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
-    next_state_values = tgt_net(next_states_v).max(1)[0]
-    next_state_values[done_mask] = 0.0
+    with torch.no_grad():
+        next_state_values = tgt_net(next_states_v).max(1)[0]
+        next_state_values[done_mask] = 0.0
 
     expected_state_action_values = next_state_values.detach() * gamma + rewards_v
     return nn.MSELoss()(state_action_values, expected_state_action_values)
 
 
-class RewardTracker:
-    def __init__(self, writer, stop_reward):
-        self.writer = writer
-        self.stop_reward = stop_reward
-
-    def __enter__(self):
-        self.ts = time.time()
-        self.ts_frame = 0
-        self.total_rewards = []
-        return self
-
-    def __exit__(self, *args):
-        self.writer.close()
-
-    def reward(self, reward, frame, epsilon=None):
-        self.total_rewards.append(reward)
-        speed = (frame - self.ts_frame) / (time.time() - self.ts)
-        self.ts_frame = frame
-        self.ts = time.time()
-        mean_reward = np.mean(self.total_rewards[-100:])
-        epsilon_str = "" if epsilon is None else ", eps %.2f" % epsilon
-        print("%d: done %d games, mean reward %.3f, speed %.2f f/s%s" % (
-            frame, len(self.total_rewards), mean_reward, speed, epsilon_str
-        ))
-        sys.stdout.flush()
-        if epsilon is not None:
-            self.writer.add_scalar("epsilon", epsilon, frame)
-        self.writer.add_scalar("speed", speed, frame)
-        self.writer.add_scalar("reward_100", mean_reward, frame)
-        self.writer.add_scalar("reward", reward, frame)
-        if mean_reward > self.stop_reward:
-            print("Solved in %d frames!" % frame)
-            return True
-        return False
-
-
 class EpsilonTracker:
     def __init__(self, epsilon_greedy_selector, params):
         self.epsilon_greedy_selector = epsilon_greedy_selector
-        self.epsilon_start = params['epsilon_start']
-        self.epsilon_final = params['epsilon_final']
-        self.epsilon_frames = params['epsilon_frames']
+        self.epsilon_start = params.epsilon_start
+        self.epsilon_final = params.epsilon_final
+        self.epsilon_frames = params.epsilon_frames
         self.frame(0)
 
     def frame(self, frame):
