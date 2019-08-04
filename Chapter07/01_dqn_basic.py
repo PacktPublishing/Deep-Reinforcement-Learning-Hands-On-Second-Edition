@@ -67,7 +67,7 @@ if __name__ == "__main__":
         }
 
     engine = Engine(process_batch)
-    ptan_ignite.EndOfEpisodeHandler(exp_source, bound_avg_reward=17.0).attach(engine)
+    ptan_ignite.EndOfEpisodeHandler(exp_source, bound_avg_reward=params.stop_reward).attach(engine)
     ptan_ignite.EpisodeFPSHandler().attach(engine)
 
     @engine.on(ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
