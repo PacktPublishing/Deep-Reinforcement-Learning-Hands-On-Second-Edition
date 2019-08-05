@@ -23,9 +23,8 @@ EVAL_EVERY_FRAME = 100
 
 
 class DuelingDQN(nn.Module):
-    def __init__(self, input_shape, n_actions, fix=False):
+    def __init__(self, input_shape, n_actions):
         super(DuelingDQN, self).__init__()
-        self.fix = fix
 
         self.conv = nn.Sequential(
             nn.Conv2d(input_shape[0], 32, kernel_size=8, stride=4),
@@ -54,10 +53,7 @@ class DuelingDQN(nn.Module):
 
     def forward(self, x):
         adv, val = self.adv_val(x)
-        if self.fix:
-            return val + (adv - adv.mean(dim=1, keepdim=True))
-        else:
-            return val + adv - adv.mean()
+        return val + (adv - adv.mean(dim=1, keepdim=True))
 
     def adv_val(self, x):
         fx = x.float() / 256
@@ -87,8 +83,6 @@ if __name__ == "__main__":
     params = common.HYPERPARAMS['pong']
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action="store_true", help="Enable cuda")
-    # TODO: remove fix argument after test
-    parser.add_argument("--fix", default=False, action='store_true', help="Apply fix")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
@@ -96,7 +90,7 @@ if __name__ == "__main__":
     env = ptan.common.wrappers.wrap_dqn(env)
     env.seed(common.SEED)
 
-    net = DuelingDQN(env.observation_space.shape, env.action_space.n, args.fix).to(device)
+    net = DuelingDQN(env.observation_space.shape, env.action_space.n).to(device)
 
     tgt_net = ptan.agent.TargetNet(net)
     selector = ptan.actions.EpsilonGreedyActionSelector(epsilon=params.epsilon_start)
@@ -149,7 +143,7 @@ if __name__ == "__main__":
             trainer.state.episode, trainer.state.iteration))
         trainer.should_terminate = True
 
-    logdir = f"runs/{datetime.now().isoformat(timespec='minutes')}-{params.run_name}-{NAME}-fix={args.fix}"
+    logdir = f"runs/{datetime.now().isoformat(timespec='minutes')}-{params.run_name}-{NAME}"
     tb = tb_logger.TensorboardLogger(log_dir=logdir)
     RunningAverage(output_transform=lambda v: v['loss']).attach(engine, "avg_loss")
 
