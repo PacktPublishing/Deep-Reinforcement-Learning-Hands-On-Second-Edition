@@ -1,72 +1,18 @@
 #!/usr/bin/env python3
 import gym
 import ptan
-import ptan.ignite as ptan_ignite
-from datetime import datetime, timedelta
 import argparse
 import random
-import numpy as np
 
 import torch
 import torch.optim as optim
-import torch.nn as nn
 
 from ignite.engine import Engine
-from ignite.metrics import RunningAverage
-from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
-from lib import dqn_model, common
+from lib import common, dqn_extra
 
 NAME = "04_noisy"
 NOISY_SNR_EVERY_ITERS = 100
-
-
-class NoisyDQN(nn.Module):
-    def __init__(self, input_shape, n_actions):
-        super(NoisyDQN, self).__init__()
-
-        self.conv = nn.Sequential(
-            nn.Conv2d(input_shape[0], 32, kernel_size=8, stride=4),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
-            nn.ReLU()
-        )
-
-        conv_out_size = self._get_conv_out(input_shape)
-        self.noisy_layers = [
-            dqn_model.NoisyLinear(conv_out_size, 512),
-            dqn_model.NoisyLinear(512, n_actions)
-        ]
-        self.fc = nn.Sequential(
-            self.noisy_layers[0],
-            nn.ReLU(),
-            self.noisy_layers[1]
-        )
-
-    def _get_conv_out(self, shape):
-        o = self.conv(torch.zeros(1, *shape))
-        return int(np.prod(o.size()))
-
-    def forward(self, x):
-        fx = x.float() / 256
-        conv_out = self.conv(fx).view(fx.size()[0], -1)
-        return self.fc(conv_out)
-
-    def noisy_layers_sigma_snr(self):
-        return [
-            ((layer.weight ** 2).mean().sqrt() / (layer.sigma_weight ** 2).mean().sqrt()).item()
-            for layer in self.noisy_layers
-        ]
-
-
-def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
-                    initial: int, batch_size: int):
-    buffer.populate(initial)
-    while True:
-        buffer.populate(1)
-        yield buffer.sample(batch_size)
 
 
 if __name__ == "__main__":
@@ -82,7 +28,7 @@ if __name__ == "__main__":
     env = ptan.common.wrappers.wrap_dqn(env)
     env.seed(common.SEED)
 
-    net = NoisyDQN(env.observation_space.shape, env.action_space.n).to(device)
+    net = dqn_extra.NoisyDQN(env.observation_space.shape, env.action_space.n).to(device)
 
     tgt_net = ptan.agent.TargetNet(net)
     selector = ptan.actions.ArgmaxActionSelector()
@@ -110,34 +56,5 @@ if __name__ == "__main__":
         }
 
     engine = Engine(process_batch)
-    ptan_ignite.EndOfEpisodeHandler(exp_source, bound_avg_reward=params.stop_reward).attach(engine)
-    ptan_ignite.EpisodeFPSHandler().attach(engine)
-
-    @engine.on(ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
-    def episode_completed(trainer: Engine):
-        print("Episode %d: reward=%s, steps=%s, speed=%.3f frames/s, elapsed=%s" % (
-            trainer.state.episode, trainer.state.episode_reward,
-            trainer.state.episode_steps, trainer.state.metrics.get('avg_fps', 0),
-            timedelta(seconds=trainer.state.metrics.get('time_passed', 0))))
-
-    @engine.on(ptan_ignite.EpisodeEvents.BOUND_REWARD_REACHED)
-    def game_solved(trainer: Engine):
-        print("Game solved in %s, after %d episodes and %d iterations!" % (
-            timedelta(seconds=trainer.state.metrics['time_passed']),
-            trainer.state.episode, trainer.state.iteration))
-        trainer.should_terminate = True
-
-    logdir = f"runs/{datetime.now().isoformat(timespec='minutes')}-{params.run_name}-{NAME}"
-    tb = tb_logger.TensorboardLogger(log_dir=logdir)
-    RunningAverage(output_transform=lambda v: v['loss']).attach(engine, "avg_loss")
-
-    episode_handler = tb_logger.OutputHandler(tag="episodes", metric_names=['reward', 'steps', 'avg_reward'])
-    tb.attach(engine, log_handler=episode_handler, event_name=ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
-
-    # write to tensorboard every 100 iterations
-    ptan_ignite.PeriodicEvents().attach(engine)
-    handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss', 'avg_fps', 'snr_1', 'snr_2'],
-                                      output_transform=lambda a: a)
-    tb.attach(engine, log_handler=handler, event_name=ptan_ignite.PeriodEvents.ITERS_100_COMPLETED)
-
-    engine.run(batch_generator(buffer, params.replay_initial, params.batch_size))
+    common.setup_ignite(engine, params, exp_source, NAME, extra_metrics=('snr_1', 'snr_2'))
+    engine.run(common.batch_generator(buffer, params.replay_initial, params.batch_size))

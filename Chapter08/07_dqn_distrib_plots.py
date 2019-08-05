@@ -16,6 +16,7 @@ from ignite.engine import Engine
 from ignite.metrics import RunningAverage
 from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
+import lib.dqn_extra
 from lib import dqn_model, common
 
 NAME = "07_distrib"
@@ -154,7 +155,7 @@ def calc_loss(batch, net, tgt_net, gamma, device="cpu", save_prefix=None):
     dones = dones.astype(np.bool)
 
     # project our distribution using Bellman update
-    proj_distr = common.distr_projection(next_best_distr, rewards, dones, Vmin, Vmax, N_ATOMS, gamma)
+    proj_distr = lib.dqn_extra.distr_projection(next_best_distr, rewards, dones, Vmin, Vmax, N_ATOMS, gamma)
 
     # calculate net output
     distr_v = net(states_v)
@@ -168,14 +169,6 @@ def calc_loss(batch, net, tgt_net, gamma, device="cpu", save_prefix=None):
 
     loss_v = -state_log_sm_v * proj_distr_v
     return loss_v.sum(dim=1).mean()
-
-
-def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
-                    initial: int, batch_size: int):
-    buffer.populate(initial)
-    while True:
-        buffer.populate(1)
-        yield buffer.sample(batch_size)
 
 
 if __name__ == "__main__":
@@ -269,4 +262,4 @@ if __name__ == "__main__":
                                       output_transform=lambda a: a)
     tb.attach(engine, log_handler=handler, event_name=ptan_ignite.PeriodEvents.ITERS_100_COMPLETED)
 
-    engine.run(batch_generator(buffer, params.replay_initial, params.batch_size))
+    engine.run(common.batch_generator(buffer, params.replay_initial, params.batch_size))

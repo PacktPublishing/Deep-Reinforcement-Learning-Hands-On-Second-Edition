@@ -1,73 +1,19 @@
 #!/usr/bin/env python3
 import gym
 import ptan
-import ptan.ignite as ptan_ignite
-from datetime import datetime, timedelta
 import argparse
 import random
-import numpy as np
 
 import torch
 import torch.optim as optim
 
 from ignite.engine import Engine
-from ignite.metrics import RunningAverage
-from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
 from lib import dqn_model, common
+from lib.dqn_extra import PrioReplayBuffer
 
 NAME = "05_prio_replay"
 PRIO_REPLAY_ALPHA = 0.6
-BETA_START = 0.4
-BETA_FRAMES = 100000
-
-
-class PrioReplayBuffer:
-    def __init__(self, exp_source, buf_size, prob_alpha=0.6):
-        self.exp_source_iter = iter(exp_source)
-        self.prob_alpha = prob_alpha
-        self.capacity = buf_size
-        self.pos = 0
-        self.buffer = []
-        self.priorities = np.zeros((buf_size, ), dtype=np.float32)
-        self.beta = BETA_START
-
-    def update_beta(self, iteration):
-        self.beta = min(1.0, BETA_START + iteration * (1.0 - BETA_START) / BETA_FRAMES)
-        return self.beta
-
-    def __len__(self):
-        return len(self.buffer)
-
-    def populate(self, count):
-        max_prio = self.priorities.max() if self.buffer else 1.0
-        for _ in range(count):
-            sample = next(self.exp_source_iter)
-            if len(self.buffer) < self.capacity:
-                self.buffer.append(sample)
-            else:
-                self.buffer[self.pos] = sample
-            self.priorities[self.pos] = max_prio
-            self.pos = (self.pos + 1) % self.capacity
-
-    def sample(self, batch_size):
-        if len(self.buffer) == self.capacity:
-            prios = self.priorities
-        else:
-            prios = self.priorities[:self.pos]
-        probs = prios ** self.prob_alpha
-
-        probs /= probs.sum()
-        indices = np.random.choice(len(self.buffer), batch_size, p=probs)
-        samples = [self.buffer[idx] for idx in indices]
-        total = len(self.buffer)
-        weights = (total * probs[indices]) ** (-self.beta)
-        weights /= weights.max()
-        return samples, indices, np.array(weights, dtype=np.float32)
-
-    def update_priorities(self, batch_indices, batch_priorities):
-        for idx, prio in zip(batch_indices, batch_priorities):
-            self.priorities[idx] = prio
 
 
 def calc_loss(batch, batch_weights, net, tgt_net, gamma, device="cpu"):
@@ -87,14 +33,6 @@ def calc_loss(batch, batch_weights, net, tgt_net, gamma, device="cpu"):
         expected_state_action_values = next_state_values.detach() * gamma + rewards_v
     losses_v = batch_weights_v * (state_action_values - expected_state_action_values) ** 2
     return losses_v.mean(), (losses_v + 1e-5).data.cpu().numpy()
-
-
-def batch_generator(buffer: PrioReplayBuffer,
-                    initial: int, batch_size: int):
-    buffer.populate(initial)
-    while True:
-        buffer.populate(1)
-        yield buffer.sample(batch_size)
 
 
 if __name__ == "__main__":
@@ -142,34 +80,5 @@ if __name__ == "__main__":
         }
 
     engine = Engine(process_batch)
-    ptan_ignite.EndOfEpisodeHandler(exp_source, bound_avg_reward=params.stop_reward).attach(engine)
-    ptan_ignite.EpisodeFPSHandler().attach(engine)
-
-    @engine.on(ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
-    def episode_completed(trainer: Engine):
-        print("Episode %d: reward=%s, steps=%s, speed=%.3f frames/s, elapsed=%s" % (
-            trainer.state.episode, trainer.state.episode_reward,
-            trainer.state.episode_steps, trainer.state.metrics.get('avg_fps', 0),
-            timedelta(seconds=trainer.state.metrics.get('time_passed', 0))))
-
-    @engine.on(ptan_ignite.EpisodeEvents.BOUND_REWARD_REACHED)
-    def game_solved(trainer: Engine):
-        print("Game solved in %s, after %d episodes and %d iterations!" % (
-            timedelta(seconds=trainer.state.metrics['time_passed']),
-            trainer.state.episode, trainer.state.iteration))
-        trainer.should_terminate = True
-
-    logdir = f"runs/{datetime.now().isoformat(timespec='minutes')}-{params.run_name}-{NAME}"
-    tb = tb_logger.TensorboardLogger(log_dir=logdir)
-    RunningAverage(output_transform=lambda v: v['loss']).attach(engine, "avg_loss")
-
-    episode_handler = tb_logger.OutputHandler(tag="episodes", metric_names=['reward', 'steps', 'avg_reward'])
-    tb.attach(engine, log_handler=episode_handler, event_name=ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
-
-    # write to tensorboard every 100 iterations
-    ptan_ignite.PeriodicEvents().attach(engine)
-    handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss', 'avg_fps'],
-                                      output_transform=lambda a: a)
-    tb.attach(engine, log_handler=handler, event_name=ptan_ignite.PeriodEvents.ITERS_100_COMPLETED)
-
-    engine.run(batch_generator(buffer, params.replay_initial, params.batch_size))
+    common.setup_ignite(engine, params, exp_source, NAME)
+    engine.run(common.batch_generator(buffer, params.replay_initial, params.batch_size))

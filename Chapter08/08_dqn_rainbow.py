@@ -12,6 +12,7 @@ import torch.optim as optim
 
 from tensorboardX import SummaryWriter
 
+import lib.dqn_extra
 from lib import dqn_model, common
 
 # n-step
@@ -44,15 +45,15 @@ class RainbowDQN(nn.Module):
 
         conv_out_size = self._get_conv_out(input_shape)
         self.fc_val = nn.Sequential(
-            dqn_model.NoisyLinear(conv_out_size, 512),
+            lib.dqn_extra.NoisyLinear(conv_out_size, 512),
             nn.ReLU(),
-            dqn_model.NoisyLinear(512, N_ATOMS)
+            lib.dqn_extra.NoisyLinear(512, N_ATOMS)
         )
 
         self.fc_adv = nn.Sequential(
-            dqn_model.NoisyLinear(conv_out_size, 512),
+            lib.dqn_extra.NoisyLinear(conv_out_size, 512),
             nn.ReLU(),
-            dqn_model.NoisyLinear(512, n_actions * N_ATOMS)
+            lib.dqn_extra.NoisyLinear(512, n_actions * N_ATOMS)
         )
 
         self.register_buffer("supports", torch.arange(Vmin, Vmax+DELTA_Z, DELTA_Z))
@@ -111,7 +112,7 @@ def calc_loss(batch, batch_weights, net, tgt_net, gamma, device="cpu"):
     dones = dones.astype(np.bool)
 
     # project our distribution using Bellman update
-    proj_distr = common.distr_projection(next_best_distr, rewards, dones, Vmin, Vmax, N_ATOMS, gamma)
+    proj_distr = lib.dqn_extra.distr_projection(next_best_distr, rewards, dones, Vmin, Vmax, N_ATOMS, gamma)
 
     # calculate net output
     state_action_values = distr_v[range(batch_size), actions_v.data]
