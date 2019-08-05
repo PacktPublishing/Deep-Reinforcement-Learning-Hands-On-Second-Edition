@@ -1,72 +1,68 @@
-import sys
-import time
 import numpy as np
-
 import torch
 import torch.nn as nn
+from types import SimpleNamespace
 
+SEED = 123
 
-class RewardTracker:
-    def __init__(self, writer, stop_reward, group_rewards=1):
-        self.writer = writer
-        self.stop_reward = stop_reward
-        self.reward_buf = []
-        self.steps_buf = []
-        self.group_rewards = group_rewards
-
-    def __enter__(self):
-        self.ts = time.time()
-        self.ts_frame = 0
-        self.total_rewards = []
-        self.total_steps = []
-        return self
-
-    def __exit__(self, *args):
-        self.writer.close()
-
-    def reward(self, reward_steps, frame, epsilon=None):
-        reward, steps = reward_steps
-        self.reward_buf.append(reward)
-        self.steps_buf.append(steps)
-        if len(self.reward_buf) < self.group_rewards:
-            return False
-        reward = np.mean(self.reward_buf)
-        steps = np.mean(self.steps_buf)
-        self.reward_buf.clear()
-        self.steps_buf.clear()
-        self.total_rewards.append(reward)
-        self.total_steps.append(steps)
-        speed = (frame - self.ts_frame) / (time.time() - self.ts)
-        self.ts_frame = frame
-        self.ts = time.time()
-        mean_reward = np.mean(self.total_rewards[-100:])
-        mean_steps = np.mean(self.total_steps[-100:])
-        epsilon_str = "" if epsilon is None else ", eps %.2f" % epsilon
-        print("%d: done %d games, mean reward %.3f, mean steps %.2f, speed %.2f f/s%s" % (
-            frame, len(self.total_rewards)*self.group_rewards, mean_reward, mean_steps, speed, epsilon_str
-        ))
-        sys.stdout.flush()
-        if epsilon is not None:
-            self.writer.add_scalar("epsilon", epsilon, frame)
-        self.writer.add_scalar("speed", speed, frame)
-        self.writer.add_scalar("reward_100", mean_reward, frame)
-        self.writer.add_scalar("reward", reward, frame)
-        self.writer.add_scalar("steps_100", mean_steps, frame)
-        self.writer.add_scalar("steps", steps, frame)
-        if mean_reward > self.stop_reward:
-            print("Solved in %d frames!" % frame)
-            return True
-        return False
-
-
-def calc_values_of_states(states, net, device="cpu"):
-    mean_vals = []
-    for batch in np.array_split(states, 64):
-        states_v = torch.tensor(batch).to(device)
-        action_values_v = net(states_v)
-        best_action_values_v = action_values_v.max(1)[0]
-        mean_vals.append(best_action_values_v.mean().item())
-    return np.mean(mean_vals)
+HYPERPARAMS = {
+    'pong': SimpleNamespace(**{
+        'env_name':         "PongNoFrameskip-v4",
+        'stop_reward':      18.0,
+        'run_name':         'pong',
+        'replay_size':      100000,
+        'replay_initial':   10000,
+        'target_net_sync':  1000,
+        'epsilon_frames':   10**5,
+        'epsilon_start':    1.0,
+        'epsilon_final':    0.02,
+        'learning_rate':    0.0001,
+        'gamma':            0.99,
+        'batch_size':       32
+    }),
+    'breakout-small': SimpleNamespace(**{
+        'env_name':         "BreakoutNoFrameskip-v4",
+        'stop_reward':      500.0,
+        'run_name':         'breakout-small',
+        'replay_size':      3*10 ** 5,
+        'replay_initial':   20000,
+        'target_net_sync':  1000,
+        'epsilon_frames':   10 ** 6,
+        'epsilon_start':    1.0,
+        'epsilon_final':    0.1,
+        'learning_rate':    0.0001,
+        'gamma':            0.99,
+        'batch_size':       64
+    }),
+    'breakout': SimpleNamespace(**{
+        'env_name':         "BreakoutNoFrameskip-v4",
+        'stop_reward':      500.0,
+        'run_name':         'breakout',
+        'replay_size':      10 ** 6,
+        'replay_initial':   50000,
+        'target_net_sync':  10000,
+        'epsilon_frames':   10 ** 6,
+        'epsilon_start':    1.0,
+        'epsilon_final':    0.1,
+        'learning_rate':    0.00025,
+        'gamma':            0.99,
+        'batch_size':       32
+    }),
+    'invaders': SimpleNamespace(**{
+        'env_name': "SpaceInvadersNoFrameskip-v4",
+        'stop_reward': 500.0,
+        'run_name': 'breakout',
+        'replay_size': 10 ** 6,
+        'replay_initial': 50000,
+        'target_net_sync': 10000,
+        'epsilon_frames': 10 ** 6,
+        'epsilon_start': 1.0,
+        'epsilon_final': 0.1,
+        'learning_rate': 0.00025,
+        'gamma': 0.99,
+        'batch_size': 32
+    }),
+}
 
 
 def unpack_batch(batch):
@@ -85,7 +81,7 @@ def unpack_batch(batch):
            np.array(dones, dtype=np.uint8), np.array(last_states, copy=False)
 
 
-def calc_loss(batch, net, tgt_net, gamma, device="cpu"):
+def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu"):
     states, actions, rewards, dones, next_states = unpack_batch(batch)
 
     states_v = torch.tensor(states).to(device)
@@ -95,9 +91,22 @@ def calc_loss(batch, net, tgt_net, gamma, device="cpu"):
     done_mask = torch.ByteTensor(dones).to(device)
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
-    next_state_actions = net(next_states_v).max(1)[1]
-    next_state_values = tgt_net(next_states_v).gather(1, next_state_actions.unsqueeze(-1)).squeeze(-1)
-    next_state_values[done_mask] = 0.0
+    with torch.no_grad():
+        next_state_values = tgt_net(next_states_v).max(1)[0]
+        next_state_values[done_mask] = 0.0
 
     expected_state_action_values = next_state_values.detach() * gamma + rewards_v
     return nn.MSELoss()(state_action_values, expected_state_action_values)
+
+
+class EpsilonTracker:
+    def __init__(self, epsilon_greedy_selector, params):
+        self.epsilon_greedy_selector = epsilon_greedy_selector
+        self.epsilon_start = params.epsilon_start
+        self.epsilon_final = params.epsilon_final
+        self.epsilon_frames = params.epsilon_frames
+        self.frame(0)
+
+    def frame(self, frame):
+        self.epsilon_greedy_selector.epsilon = \
+            max(self.epsilon_final, self.epsilon_start - frame / self.epsilon_frames)

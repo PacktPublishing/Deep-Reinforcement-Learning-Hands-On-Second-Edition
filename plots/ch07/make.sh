@@ -15,12 +15,11 @@ set -x
 #../plot.py -i 02_n_steps/3_avg_reward.csv -i 02_n_steps/4_avg_reward.csv -i 02_n_steps/5_avg_reward.csv -i 02_n_steps/6_avg_reward.csv \
 #    -o 02_reward_3456.svg -x Episodes -y Reward -l Steps=3 -l Steps=4 -l Steps=5 -l Steps=6
 
-# TODO: to be updated
-#../plot.py -i 03_double/false_avg_reward.csv -i 03_double/true_avg_reward.csv \
-#    -o 03_reward.png -x Episodes -y Reward -l "DQN" -l "Double DQN"
-#
-#../plot.py -i 03_double/false_values.csv -i 03_double/true_values.csv \
-#    -o 03_values.png -y Values -l "DQN" -l "Double DQN"
+../plot.py -i 03_double/false_avg_reward.csv -i 03_double/true_avg_reward.csv \
+    -o 03_reward.png -x Episodes -y Reward -l "DQN" -l "Double DQN"
+
+../plot.py -i 03_double/false_values.csv -i 03_double/true_values.csv \
+    -o 03_values.png -y Values -l "DQN" -l "Double DQN"
 
 #../plot.py -i 01_base/avg_reward.csv -i 04_noisy/avg_reward.csv -o 04_reward.svg -x Episodes -y Reward -l Baseline -l "Noisy net"
 #../plot.py -i 01_base/steps.csv -i 04_noisy/steps.csv -o 04_steps.svg -x Episodes -y "Episode steps" -l Baseline -l "Noisy net"

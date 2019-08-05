@@ -1,63 +1,53 @@
 #!/usr/bin/env python3
-import sys
-import time
+import ptan
+import gym
 import argparse
+import numpy as np
 
-from lib import game, model
+from lib import common
 
 import torch
-
-
-MCTS_SEARCHES = 10
-MCTS_BATCH_SIZE = 8
+import torch.nn.functional as F
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("models", nargs='+', help="The list of models (at least 2) to play against each other")
-    parser.add_argument("-r", "--rounds", type=int, default=2, help="Count of rounds to perform for every pair")
-    parser.add_argument("--cuda", default=False, action="store_true", help="Enable CUDA")
+    parser.add_argument("-m", "--model", required=True, help="Model file name")
+    parser.add_argument("-w", "--write", required=True, help="Monitor directory name")
+    parser.add_argument("--cuda", default=False, action="store_true")
+    parser.add_argument("--seed", type=int, default=0, help="Random seed")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
-    nets = []
-    for fname in args.models:
-        net = model.Net(model.OBS_SHAPE, game.GAME_COLS)
-        net.load_state_dict(torch.load(fname, map_location=lambda storage, loc: storage))
-        net = net.to(device)
-        nets.append((fname, net))
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
 
-    total_agent = {}
-    total_pairs = {}
+    make_env = lambda: ptan.common.wrappers.wrap_dqn(gym.make("BreakoutNoFrameskip-v4"),
+                                                     stack_frames=common.FRAMES_COUNT,
+                                                     episodic_life=False, reward_clipping=False)
+    env = make_env()
+    env = gym.wrappers.Monitor(env, args.write)
+    net = common.AtariA2C(env.observation_space.shape, env.action_space.n)
+    net.load_state_dict(torch.load(args.model, map_location=lambda storage, loc: storage))
+    if args.cuda:
+        net.cuda()
 
-    for idx1, n1 in enumerate(nets):
-        for idx2, n2 in enumerate(nets):
-            if idx1 == idx2:
-                continue
-            wins, losses, draws = 0, 0, 0
-            ts = time.time()
-            for _ in range(args.rounds):
-                r, _ = model.play_game(mcts_stores=None, replay_buffer=None, net1=n1[1], net2=n2[1], steps_before_tau_0=0,
-                                    mcts_searches=MCTS_SEARCHES, mcts_batch_size=MCTS_BATCH_SIZE, device=device)
-                if r > 0.5:
-                    wins += 1
-                elif r < -0.5:
-                    losses += 1
-                else:
-                    draws += 1
-            speed_games = args.rounds / (time.time() - ts)
-            name_1, name_2 = n1[0], n2[0]
-            print("%s vs %s -> w=%d, l=%d, d=%d" % (name_1, name_2, wins, losses, draws))
-            sys.stderr.write("Speed %.2f games/s\n" % speed_games)
-            sys.stdout.flush()
-            game.update_counts(total_agent, name_1, (wins, losses, draws))
-            game.update_counts(total_agent, name_2, (losses, wins, draws))
-            game.update_counts(total_pairs, (name_1, name_2), (wins, losses, draws))
+    act_selector = ptan.actions.ProbabilityActionSelector()
 
-    # leaderboard by total wins
-    total_leaders = list(total_agent.items())
-    total_leaders.sort(reverse=True, key=lambda p: p[1][0])
+    obs = env.reset()
+    total_reward = 0.0
+    total_steps = 0
 
-    print("Leaderboard:")
-    for name, (wins, losses, draws) in total_leaders:
-        print("%s: \t w=%d, l=%d, d=%d" % (name, wins, losses, draws))
+    while True:
+        obs_v = ptan.agent.default_states_preprocessor([obs]).to(device)
+        logits_v, values_v = net(obs_v)
+        probs_v = F.softmax(logits_v)
+        probs = probs_v.data.cpu().numpy()
+        actions = act_selector(probs)
+        obs, r, done, _ = env.step(actions[0])
+        total_reward += r
+        total_steps += 1
+        if done:
+            break
+
+    print("Done in %d steps, reward %.2f" % (total_steps, total_reward))
