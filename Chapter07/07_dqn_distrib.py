@@ -1,33 +1,29 @@
 #!/usr/bin/env python3
 import gym
 import ptan
-import numpy as np
+import ptan.ignite as ptan_ignite
+from datetime import datetime, timedelta
 import argparse
+import random
+import numpy as np
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
+import torch.nn.functional as F
 
-from tensorboardX import SummaryWriter
+from ignite.engine import Engine
+from ignite.metrics import RunningAverage
+from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
 from lib import common
 
-SAVE_STATES_IMG = False
-SAVE_TRANSITIONS_IMG = False
-
-if SAVE_STATES_IMG or SAVE_TRANSITIONS_IMG:
-    import matplotlib as mpl
-    mpl.use("Agg")
-    import matplotlib.pylab as plt
+NAME = "07_distrib"
 
 Vmax = 10
 Vmin = -10
 N_ATOMS = 51
 DELTA_Z = (Vmax - Vmin) / (N_ATOMS - 1)
-
-STATES_TO_EVALUATE = 1000
-EVAL_EVERY_FRAME = 100
 
 
 class DistributionalDQN(nn.Module):
@@ -78,58 +74,7 @@ class DistributionalDQN(nn.Module):
         return self.softmax(t.view(-1, N_ATOMS)).view(t.size())
 
 
-def calc_values_of_states(states, net, device="cpu"):
-    mean_vals = []
-    for batch in np.array_split(states, 64):
-        states_v = torch.tensor(batch).to(device)
-        action_values_v = net.qvals(states_v)
-        best_action_values_v = action_values_v.max(1)[0]
-        mean_vals.append(best_action_values_v.mean().item())
-    return np.mean(mean_vals)
-
-
-def save_state_images(frame_idx, states, net, device="cpu", max_states=200):
-    ofs = 0
-    p = np.arange(Vmin, Vmax + DELTA_Z, DELTA_Z)
-    for batch in np.array_split(states, 64):
-        states_v = torch.tensor(batch).to(device)
-        action_prob = net.apply_softmax(net(states_v)).data.cpu().numpy()
-        batch_size, num_actions, _ = action_prob.shape
-        for batch_idx in range(batch_size):
-            plt.clf()
-            for action_idx in range(num_actions):
-                plt.subplot(num_actions, 1, action_idx+1)
-                plt.bar(p, action_prob[batch_idx, action_idx], width=0.5)
-            plt.savefig("states/%05d_%08d.png" % (ofs + batch_idx, frame_idx))
-        ofs += batch_size
-        if ofs >= max_states:
-            break
-
-
-def save_transition_images(batch_size, predicted, projected, next_distr, dones, rewards, save_prefix):
-    for batch_idx in range(batch_size):
-        is_done = dones[batch_idx]
-        reward = rewards[batch_idx]
-        plt.clf()
-        p = np.arange(Vmin, Vmax + DELTA_Z, DELTA_Z)
-        plt.subplot(3, 1, 1)
-        plt.bar(p, predicted[batch_idx], width=0.5)
-        plt.title("Predicted")
-        plt.subplot(3, 1, 2)
-        plt.bar(p, projected[batch_idx], width=0.5)
-        plt.title("Projected")
-        plt.subplot(3, 1, 3)
-        plt.bar(p, next_distr[batch_idx], width=0.5)
-        plt.title("Next state")
-        suffix = ""
-        if reward != 0.0:
-            suffix = suffix + "_%.0f" % reward
-        if is_done:
-            suffix = suffix + "_done"
-        plt.savefig("%s_%02d%s.png" % (save_prefix, batch_idx, suffix))
-
-
-def calc_loss(batch, net, tgt_net, gamma, device="cpu", save_prefix=None):
+def calc_loss(batch, net, tgt_net, gamma, device="cpu"):
     states, actions, rewards, dones, next_states = common.unpack_batch(batch)
     batch_size = len(batch)
 
@@ -154,82 +99,88 @@ def calc_loss(batch, net, tgt_net, gamma, device="cpu", save_prefix=None):
     state_log_sm_v = F.log_softmax(state_action_values, dim=1)
     proj_distr_v = torch.tensor(proj_distr).to(device)
 
-    if save_prefix is not None:
-        pred = F.softmax(state_action_values, dim=1).data.cpu().numpy()
-        save_transition_images(batch_size, pred, proj_distr, next_best_distr, dones, rewards, save_prefix)
-
     loss_v = -state_log_sm_v * proj_distr_v
     return loss_v.sum(dim=1).mean()
 
 
+def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
+                    initial: int, batch_size: int):
+    buffer.populate(initial)
+    while True:
+        buffer.populate(1)
+        yield buffer.sample(batch_size)
+
+
 if __name__ == "__main__":
+    random.seed(common.SEED)
+    torch.manual_seed(common.SEED)
     params = common.HYPERPARAMS['pong']
-#    params['epsilon_frames'] *= 2
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action="store_true", help="Enable cuda")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
-    env = gym.make(params['env_name'])
+    env = gym.make(params.env_name)
     env = ptan.common.wrappers.wrap_dqn(env)
+    env.seed(common.SEED)
 
-    writer = SummaryWriter(comment="-" + params['run_name'] + "-distrib")
     net = DistributionalDQN(env.observation_space.shape, env.action_space.n).to(device)
 
     tgt_net = ptan.agent.TargetNet(net)
-    selector = ptan.actions.EpsilonGreedyActionSelector(epsilon=params['epsilon_start'])
+    selector = ptan.actions.EpsilonGreedyActionSelector(epsilon=params.epsilon_start)
     epsilon_tracker = common.EpsilonTracker(selector, params)
     agent = ptan.agent.DQNAgent(lambda x: net.qvals(x), selector, device=device)
 
-    exp_source = ptan.experience.ExperienceSourceFirstLast(env, agent, gamma=params['gamma'], steps_count=1)
-    buffer = ptan.experience.ExperienceReplayBuffer(exp_source, buffer_size=params['replay_size'])
-    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'])
+    exp_source = ptan.experience.ExperienceSourceFirstLast(
+        env, agent, gamma=params.gamma)
+    buffer = ptan.experience.ExperienceReplayBuffer(
+        exp_source, buffer_size=params.replay_size)
+    optimizer = optim.Adam(net.parameters(), lr=params.learning_rate)
 
-    frame_idx = 0
-    eval_states = None
-    prev_save = 0
-    save_prefix = None
+    def process_batch(engine, batch):
+        optimizer.zero_grad()
+        loss_v = calc_loss(batch, net, tgt_net.target_model,
+                           gamma=params.gamma, device=device)
+        loss_v.backward()
+        optimizer.step()
+        epsilon_tracker.frame(engine.state.iteration)
+        if engine.state.iteration % params.target_net_sync == 0:
+            tgt_net.sync()
 
-    with common.RewardTracker(writer, params['stop_reward']) as reward_tracker:
-        while True:
-            frame_idx += 1
-            buffer.populate(1)
-            epsilon_tracker.frame(frame_idx)
+        return {
+            "loss": loss_v.item(),
+            "epsilon": selector.epsilon,
+        }
 
-            new_rewards = exp_source.pop_total_rewards()
-            if new_rewards:
-                if reward_tracker.reward(new_rewards[0], frame_idx, selector.epsilon):
-                    break
+    engine = Engine(process_batch)
+    ptan_ignite.EndOfEpisodeHandler(exp_source, bound_avg_reward=params.stop_reward).attach(engine)
+    ptan_ignite.EpisodeFPSHandler().attach(engine)
 
-            if len(buffer) < params['replay_initial']:
-                continue
+    @engine.on(ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
+    def episode_completed(trainer: Engine):
+        print("Episode %d: reward=%s, steps=%s, speed=%.3f frames/s, elapsed=%s" % (
+            trainer.state.episode, trainer.state.episode_reward,
+            trainer.state.episode_steps, trainer.state.metrics.get('avg_fps', 0),
+            timedelta(seconds=trainer.state.metrics.get('time_passed', 0))))
 
-            if eval_states is None:
-                eval_states = buffer.sample(STATES_TO_EVALUATE)
-                eval_states = [np.array(transition.state, copy=False) for transition in eval_states]
-                eval_states = np.array(eval_states, copy=False)
+    @engine.on(ptan_ignite.EpisodeEvents.BOUND_REWARD_REACHED)
+    def game_solved(trainer: Engine):
+        print("Game solved in %s, after %d episodes and %d iterations!" % (
+            timedelta(seconds=trainer.state.metrics['time_passed']),
+            trainer.state.episode, trainer.state.iteration))
+        trainer.should_terminate = True
 
-            optimizer.zero_grad()
-            batch = buffer.sample(params['batch_size'])
+    logdir = f"runs/{datetime.now().isoformat(timespec='minutes')}-{params.run_name}-{NAME}"
+    tb = tb_logger.TensorboardLogger(log_dir=logdir)
+    RunningAverage(output_transform=lambda v: v['loss']).attach(engine, "avg_loss")
 
-            save_prefix = None
-            if SAVE_TRANSITIONS_IMG:
-                interesting = any(map(lambda s: s.last_state is None or s.reward != 0.0, batch))
-                if interesting and frame_idx // 30000 > prev_save:
-                    save_prefix = "images/img_%08d" % frame_idx
-                    prev_save = frame_idx // 30000
+    episode_handler = tb_logger.OutputHandler(tag="episodes", metric_names=['reward', 'steps', 'avg_reward'])
+    tb.attach(engine, log_handler=episode_handler, event_name=ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
 
-            loss_v = calc_loss(batch, net, tgt_net.target_model, gamma=params['gamma'],
-                               device=device, save_prefix=save_prefix)
-            loss_v.backward()
-            optimizer.step()
+    # write to tensorboard every 100 iterations
+    ptan_ignite.PeriodicEvents().attach(engine)
+    handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss', 'avg_fps'],
+                                      output_transform=lambda a: a)
+    tb.attach(engine, log_handler=handler, event_name=ptan_ignite.PeriodEvents.ITERS_100_COMPLETED)
 
-            if frame_idx % params['target_net_sync'] == 0:
-                tgt_net.sync()
-
-            if frame_idx % EVAL_EVERY_FRAME == 0:
-                mean_val = calc_values_of_states(eval_states, net, device=device)
-                writer.add_scalar("values_mean", mean_val, frame_idx)
-
-            if SAVE_STATES_IMG and frame_idx % 10000 == 0:
-                save_state_images(frame_idx, eval_states, net, device=device)
+    engine.run(batch_generator(buffer, params.replay_initial, params.batch_size))

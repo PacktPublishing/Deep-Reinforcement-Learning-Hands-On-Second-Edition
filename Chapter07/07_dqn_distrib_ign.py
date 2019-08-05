@@ -21,8 +21,8 @@ from lib import dqn_model, common
 NAME = "07_distrib"
 
 
-SAVE_STATES_IMG = False
-SAVE_TRANSITIONS_IMG = False
+SAVE_STATES_IMG = True
+SAVE_TRANSITIONS_IMG = True
 
 if SAVE_STATES_IMG or SAVE_TRANSITIONS_IMG:
     import matplotlib as mpl
