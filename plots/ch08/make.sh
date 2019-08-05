@@ -15,11 +15,11 @@ set -x
 #../plot.py -i 02_n_steps/3_avg_reward.csv -i 02_n_steps/4_avg_reward.csv -i 02_n_steps/5_avg_reward.csv -i 02_n_steps/6_avg_reward.csv \
 #    -o 02_reward_3456.svg -x Episodes -y Reward -l Steps=3 -l Steps=4 -l Steps=5 -l Steps=6
 
-../plot.py -i 03_double/false_avg_reward.csv -i 03_double/true_avg_reward.csv \
-    -o 03_reward.png -x Episodes -y Reward -l "DQN" -l "Double DQN"
+#../plot.py -i 03_double/false_avg_reward.csv -i 03_double/true_avg_reward.csv \
+#    -o 03_reward.png -x Episodes -y Reward -l "DQN" -l "Double DQN"
 
-../plot.py -i 03_double/false_values.csv -i 03_double/true_values.csv \
-    -o 03_values.png -y Values -l "DQN" -l "Double DQN"
+#../plot.py -i 03_double/false_values.csv -i 03_double/true_values.csv \
+#    -o 03_values.png -y Values -l "DQN" -l "Double DQN"
 
 #../plot.py -i 01_base/avg_reward.csv -i 04_noisy/avg_reward.csv -o 04_reward.svg -x Episodes -y Reward -l Baseline -l "Noisy net"
 #../plot.py -i 01_base/steps.csv -i 04_noisy/steps.csv -o 04_steps.svg -x Episodes -y "Episode steps" -l Baseline -l "Noisy net"
@@ -35,3 +35,6 @@ set -x
 #../plot.py -i 01_base/avg_loss.csv -i 06_dueling/avg_loss.csv -o 06_loss.svg -y Loss -l Baseline -l Dueling
 #../plot.py -i 06_dueling/adv.csv -o 06_adv.svg -y Advantage
 #../plot.py -i 06_dueling/val.csv -o 06_val.svg -y Value
+
+../plot.py -i 01_base/avg_reward.csv -i 07_distrib/avg_reward.csv -o 07_reward.svg -x Episodes -y Reward -l Baseline -l "Categorical DQN"
+../plot.py -i 07_distrib/avg_loss.csv -o 07_loss.svg -y Loss
