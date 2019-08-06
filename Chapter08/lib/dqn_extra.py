@@ -17,13 +17,19 @@ DELTA_Z = (Vmax - Vmin) / (N_ATOMS - 1)
 
 
 class NoisyLinear(nn.Linear):
-    def __init__(self, in_features, out_features, sigma_init=0.017, bias=True):
-        super(NoisyLinear, self).__init__(in_features, out_features, bias=bias)
-        self.sigma_weight = nn.Parameter(torch.full((out_features, in_features), sigma_init))
-        self.register_buffer("epsilon_weight", torch.zeros(out_features, in_features))
+    def __init__(self, in_features, out_features,
+                 sigma_init=0.017, bias=True):
+        super(NoisyLinear, self).__init__(
+            in_features, out_features, bias=bias)
+        w = torch.full((out_features, in_features), sigma_init)
+        self.sigma_weight = nn.Parameter(w)
+        z = torch.zeros(out_features, in_features)
+        self.register_buffer("epsilon_weight", z)
         if bias:
-            self.sigma_bias = nn.Parameter(torch.full((out_features,), sigma_init))
-            self.register_buffer("epsilon_bias", torch.zeros(out_features))
+            w = torch.full((out_features,), sigma_init)
+            self.sigma_bias = nn.Parameter(w)
+            z = torch.zeros(out_features)
+            self.register_buffer("epsilon_bias", z)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -36,8 +42,11 @@ class NoisyLinear(nn.Linear):
         bias = self.bias
         if bias is not None:
             self.epsilon_bias.normal_()
-            bias = bias + self.sigma_bias * self.epsilon_bias.data
-        return F.linear(input, self.weight + self.sigma_weight * self.epsilon_weight.data, bias)
+            bias = bias + self.sigma_bias * \
+                   self.epsilon_bias.data
+        v = self.sigma_weight * self.epsilon_weight.data + \
+            self.weight
+        return F.linear(input, v, bias)
 
 
 class NoisyFactorizedLinear(nn.Linear):
@@ -46,20 +55,27 @@ class NoisyFactorizedLinear(nn.Linear):
 
     N.B. nn.Linear already initializes weight and bias to
     """
-    def __init__(self, in_features, out_features, sigma_zero=0.4, bias=True):
-        super(NoisyFactorizedLinear, self).__init__(in_features, out_features, bias=bias)
+    def __init__(self, in_features, out_features,
+                 sigma_zero=0.4, bias=True):
+        super(NoisyFactorizedLinear, self).__init__(
+            in_features, out_features, bias=bias)
         sigma_init = sigma_zero / math.sqrt(in_features)
-        self.sigma_weight = nn.Parameter(torch.full((out_features, in_features), sigma_init))
-        self.register_buffer("epsilon_input", torch.zeros(1, in_features))
-        self.register_buffer("epsilon_output", torch.zeros(out_features, 1))
+        w = torch.full((out_features, in_features), sigma_init)
+        self.sigma_weight = nn.Parameter(w)
+        z1 = torch.zeros(1, in_features)
+        self.register_buffer("epsilon_input", z1)
+        z2 = torch.zeros(out_features, 1)
+        self.register_buffer("epsilon_output", z2)
         if bias:
-            self.sigma_bias = nn.Parameter(torch.full((out_features,), sigma_init))
+            w = torch.full((out_features,), sigma_init)
+            self.sigma_bias = nn.Parameter(w)
 
     def forward(self, input):
         self.epsilon_input.normal_()
         self.epsilon_output.normal_()
 
-        func = lambda x: torch.sign(x) * torch.sqrt(torch.abs(x))
+        func = lambda x: torch.sign(x) * \
+                         torch.sqrt(torch.abs(x))
         eps_in = func(self.epsilon_input.data)
         eps_out = func(self.epsilon_output.data)
 
@@ -67,7 +83,8 @@ class NoisyFactorizedLinear(nn.Linear):
         if bias is not None:
             bias = bias + self.sigma_bias * eps_out.t()
         noise_v = torch.mul(eps_in, eps_out)
-        return F.linear(input, self.weight + self.sigma_weight * noise_v, bias)
+        v = self.weight + self.sigma_weight * noise_v
+        return F.linear(input, v, bias)
 
 
 class NoisyDQN(nn.Module):

@@ -44,8 +44,9 @@ if __name__ == "__main__":
 
     def process_batch(engine, batch):
         optimizer.zero_grad()
-        loss_v = common.calc_loss_dqn(batch, net, tgt_net.target_model,
-                                      gamma=params.gamma**args.n, device=device)
+        loss_v = common.calc_loss_dqn(
+            batch, net, tgt_net.target_model,
+            gamma=params.gamma**args.n, device=device)
         loss_v.backward()
         optimizer.step()
         epsilon_tracker.frame(engine.state.iteration)
