@@ -17,7 +17,8 @@ NAME = "07_distrib"
 
 
 def calc_loss(batch, net, tgt_net, gamma, device="cpu"):
-    states, actions, rewards, dones, next_states = common.unpack_batch(batch)
+    states, actions, rewards, dones, next_states = \
+        common.unpack_batch(batch)
     batch_size = len(batch)
 
     states_v = torch.tensor(states).to(device)
@@ -26,19 +27,19 @@ def calc_loss(batch, net, tgt_net, gamma, device="cpu"):
 
     # next state distribution
     next_distr_v, next_qvals_v = tgt_net.both(next_states_v)
-    next_actions = next_qvals_v.max(1)[1].data.cpu().numpy()
-    next_distr = tgt_net.apply_softmax(next_distr_v).data.cpu().numpy()
+    next_acts = next_qvals_v.max(1)[1].data.cpu().numpy()
+    next_distr = tgt_net.apply_softmax(next_distr_v)
+    next_distr = next_distr.data.cpu().numpy()
 
-    next_best_distr = next_distr[range(batch_size), next_actions]
+    next_best_distr = next_distr[range(batch_size), next_acts]
     dones = dones.astype(np.bool)
 
-    # project our distribution using Bellman update
-    proj_distr = dqn_extra.distr_projection(next_best_distr, rewards, dones, gamma)
+    proj_distr = dqn_extra.distr_projection(
+        next_best_distr, rewards, dones, gamma)
 
-    # calculate net output
     distr_v = net(states_v)
-    state_action_values = distr_v[range(batch_size), actions_v.data]
-    state_log_sm_v = F.log_softmax(state_action_values, dim=1)
+    sa_vals = distr_v[range(batch_size), actions_v.data]
+    state_log_sm_v = F.log_softmax(sa_vals, dim=1)
     proj_distr_v = torch.tensor(proj_distr).to(device)
 
     loss_v = -state_log_sm_v * proj_distr_v
@@ -59,7 +60,7 @@ if __name__ == "__main__":
     env.seed(common.SEED)
 
     net = dqn_extra.DistributionalDQN(env.observation_space.shape, env.action_space.n).to(device)
-
+    print(net)
     tgt_net = ptan.agent.TargetNet(net)
     selector = ptan.actions.EpsilonGreedyActionSelector(epsilon=params.epsilon_start)
     epsilon_tracker = common.EpsilonTracker(selector, params)

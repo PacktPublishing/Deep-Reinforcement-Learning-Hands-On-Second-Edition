@@ -15,8 +15,10 @@ NAME = "05_prio_replay"
 PRIO_REPLAY_ALPHA = 0.6
 
 
-def calc_loss(batch, batch_weights, net, tgt_net, gamma, device="cpu"):
-    states, actions, rewards, dones, next_states = common.unpack_batch(batch)
+def calc_loss(batch, batch_weights, net, tgt_net,
+              gamma, device="cpu"):
+    states, actions, rewards, dones, next_states = \
+        common.unpack_batch(batch)
 
     states_v = torch.tensor(states).to(device)
     actions_v = torch.tensor(actions).to(device)
@@ -24,14 +26,18 @@ def calc_loss(batch, batch_weights, net, tgt_net, gamma, device="cpu"):
     done_mask = torch.ByteTensor(dones).to(device)
     batch_weights_v = torch.tensor(batch_weights).to(device)
 
-    state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
+    actions_v = actions_v.unsqueeze(-1)
+    state_action_vals = net(states_v).gather(1, actions_v)
+    state_action_vals = state_action_vals.squeeze(-1)
     with torch.no_grad():
         next_states_v = torch.tensor(next_states).to(device)
-        next_state_values = tgt_net(next_states_v).max(1)[0]
-        next_state_values[done_mask] = 0.0
-        expected_state_action_values = next_state_values.detach() * gamma + rewards_v
-    losses_v = batch_weights_v * (state_action_values - expected_state_action_values) ** 2
-    return losses_v.mean(), (losses_v + 1e-5).data.cpu().numpy()
+        next_s_vals = tgt_net(next_states_v).max(1)[0]
+        next_s_vals[done_mask] = 0.0
+        exp_sa_vals = next_s_vals.detach() * gamma + rewards_v
+    l = (state_action_vals - exp_sa_vals) ** 2
+    losses_v = batch_weights_v * l
+    return losses_v.mean(), \
+           (losses_v + 1e-5).data.cpu().numpy()
 
 
 if __name__ == "__main__":

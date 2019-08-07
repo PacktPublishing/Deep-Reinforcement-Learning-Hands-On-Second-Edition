@@ -36,5 +36,10 @@ set -x
 #../plot.py -i 06_dueling/adv.csv -o 06_adv.svg -y Advantage
 #../plot.py -i 06_dueling/val.csv -o 06_val.svg -y Value
 
-../plot.py -i 01_base/avg_reward.csv -i 07_distrib/avg_reward.csv -o 07_reward.svg -x Episodes -y Reward -l Baseline -l "Categorical DQN"
-../plot.py -i 07_distrib/avg_loss.csv -o 07_loss.svg -y Loss
+#../plot.py -i 01_base/avg_reward.csv -i 07_distrib/avg_reward.csv -o 07_reward.svg -x Episodes -y Reward -l Baseline -l "Categorical DQN"
+#../plot.py -i 07_distrib/avg_loss.csv -o 07_loss.svg -y Loss
+
+#../plot.py -i 01_base/avg_reward.csv -i 08_rainbow/avg_reward.csv -o 08_reward_comp.svg -x Episodes -y Reward -l Baseline -l "Combined system"
+#../plot.py -i 08_rainbow/avg_reward.csv -o 08_reward_only.svg -x Episodes -y Reward
+../plot.py -i 01_base/avg_fps.csv -i 08_rainbow/avg_fps.csv -o 08_fps.svg -y FPS -l Baseline -l "Combined system"
+../plot.py -i 01_base/steps.csv -i 08_rainbow/steps.csv -o 08_steps.svg -y Steps -l Baseline -l "Combined system"
