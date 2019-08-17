@@ -38,24 +38,15 @@ if __name__ == "__main__":
     # get rid of missing metrics warning
     warnings.simplefilter("ignore", category=UserWarning)
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--cuda", help="Enable cuda", default=False,
-        action="store_true")
-    parser.add_argument(
-        "--data", default=STOCKS,
-        help=f"Stocks file or dir, default={STOCKS}")
-    parser.add_argument(
-        "--year", type=int,
-        help="Year to train on, overrides --data")
-    parser.add_argument(
-        "--val", default=VAL_STOCKS,
-        help="Validation data, default=" + VAL_STOCKS)
-    parser.add_argument(
-        "-r", "--run", required=True, help="Run name")
+    parser.add_argument("--cuda", help="Enable cuda", default=False, action="store_true")
+    parser.add_argument("--data", default=STOCKS, help=f"Stocks file or dir, default={STOCKS}")
+    parser.add_argument("--year", type=int, help="Year to train on, overrides --data")
+    parser.add_argument("--val", default=VAL_STOCKS, help="Validation data, default=" + VAL_STOCKS)
+    parser.add_argument("-r", "--run", required=True, help="Run name")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
-    saves_path = SAVES_DIR / args.run
+    saves_path = SAVES_DIR / f"simple-{args.run}"
     saves_path.mkdir(parents=True, exist_ok=True)
 
     data_path = pathlib.Path(args.data)
@@ -135,15 +126,16 @@ if __name__ == "__main__":
                 mean_val))
             path = saves_path / ("mean_val-%.3f.data" % mean_val)
             torch.save(net.state_dict(), path)
+            engine.state.best_mean_val = mean_val
 
     @engine.on(ptan.ignite.PeriodEvents.ITERS_100000_COMPLETED)
     def validate(engine: Engine):
         res = validation.validation_run(env_tst, net, device=device)
-        print("%d: test: %s" % (engine.state.iteration, res))
+        print("%d: tst: %s" % (engine.state.iteration, res))
         for key, val in res.items():
             engine.state.metrics[key + "_tst"] = val
         res = validation.validation_run(env_val, net, device=device)
-        print("%d: validation: %s" % (engine.state.iteration, res))
+        print("%d: val: %s" % (engine.state.iteration, res))
         for key, val in res.items():
             engine.state.metrics[key + "_val"] = val
 
