@@ -1,64 +1,19 @@
-import sys
-import time
 import numpy as np
 
 import torch
 import torch.nn as nn
 
+from typing import Iterable
+from datetime import datetime
 
-class RewardTracker:
-    def __init__(self, writer, stop_reward, group_rewards=1):
-        self.writer = writer
-        self.stop_reward = stop_reward
-        self.reward_buf = []
-        self.steps_buf = []
-        self.group_rewards = group_rewards
-
-    def __enter__(self):
-        self.ts = time.time()
-        self.ts_frame = 0
-        self.total_rewards = []
-        self.total_steps = []
-        return self
-
-    def __exit__(self, *args):
-        self.writer.close()
-
-    def reward(self, reward_steps, frame, epsilon=None):
-        reward, steps = reward_steps
-        self.reward_buf.append(reward)
-        self.steps_buf.append(steps)
-        if len(self.reward_buf) < self.group_rewards:
-            return False
-        reward = np.mean(self.reward_buf)
-        steps = np.mean(self.steps_buf)
-        self.reward_buf.clear()
-        self.steps_buf.clear()
-        self.total_rewards.append(reward)
-        self.total_steps.append(steps)
-        speed = (frame - self.ts_frame) / (time.time() - self.ts)
-        self.ts_frame = frame
-        self.ts = time.time()
-        mean_reward = np.mean(self.total_rewards[-100:])
-        mean_steps = np.mean(self.total_steps[-100:])
-        epsilon_str = "" if epsilon is None else ", eps %.2f" % epsilon
-        print("%d: done %d games, mean reward %.3f, mean steps %.2f, speed %.2f f/s%s" % (
-            frame, len(self.total_rewards)*self.group_rewards, mean_reward, mean_steps, speed, epsilon_str
-        ))
-        sys.stdout.flush()
-        if epsilon is not None:
-            self.writer.add_scalar("epsilon", epsilon, frame)
-        self.writer.add_scalar("speed", speed, frame)
-        self.writer.add_scalar("reward_100", mean_reward, frame)
-        self.writer.add_scalar("reward", reward, frame)
-        self.writer.add_scalar("steps_100", mean_steps, frame)
-        self.writer.add_scalar("steps", steps, frame)
-        if mean_reward > self.stop_reward:
-            print("Solved in %d frames!" % frame)
-            return True
-        return False
+import ptan
+import ptan.ignite as ptan_ignite
+from ignite.engine import Engine
+from ignite.metrics import RunningAverage
+from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
 
+@torch.no_grad()
 def calc_values_of_states(states, net, device="cpu"):
     mean_vals = []
     for batch in np.array_split(states, 64):
@@ -101,3 +56,40 @@ def calc_loss(batch, net, tgt_net, gamma, device="cpu"):
 
     expected_state_action_values = next_state_values.detach() * gamma + rewards_v
     return nn.MSELoss()(state_action_values, expected_state_action_values)
+
+
+def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
+                    initial: int, batch_size: int):
+    buffer.populate(initial)
+    while True:
+        buffer.populate(1)
+        yield buffer.sample(batch_size)
+
+
+def setup_ignite(engine: Engine, exp_source, run_name: str,
+                 extra_metrics: Iterable[str] = ()):
+    handler = ptan_ignite.EndOfEpisodeHandler(exp_source)
+    handler.attach(engine)
+    ptan_ignite.EpisodeFPSHandler().attach(engine)
+
+    now = datetime.now().isoformat(timespec='minutes')
+    logdir = f"runs/{now}-{run_name}"
+    tb = tb_logger.TensorboardLogger(log_dir=logdir)
+    run_avg = RunningAverage(output_transform=lambda v: v['loss'])
+    run_avg.attach(engine, "avg_loss")
+
+    metrics = ['reward', 'steps', 'avg_reward']
+    handler = tb_logger.OutputHandler(
+        tag="episodes", metric_names=metrics)
+    event = ptan_ignite.EpisodeEvents.EPISODE_COMPLETED
+    tb.attach(engine, log_handler=handler, event_name=event)
+
+    ptan_ignite.PeriodicEvents().attach(engine)
+    metrics = ['avg_loss', 'avg_fps']
+    metrics.extend(extra_metrics)
+    handler = tb_logger.OutputHandler(
+        tag="train", metric_names=metrics,
+        output_transform=lambda a: a)
+    event = ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED
+    tb.attach(engine, log_handler=handler, event_name=event)
+    return tb

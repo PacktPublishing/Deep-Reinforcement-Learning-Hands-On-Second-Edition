@@ -4,14 +4,16 @@ import torch
 
 from lib import environ
 
+METRICS = (
+    'episode_reward',
+    'episode_steps',
+    'order_profits',
+    'order_steps',
+)
+
 
 def validation_run(env, net, episodes=100, device="cpu", epsilon=0.02, comission=0.1):
-    stats = {
-        'episode_reward': [],
-        'episode_steps': [],
-        'order_profits': [],
-        'order_steps': [],
-    }
+    stats = { metric: [] for metric in METRICS }
 
     for episode in range(episodes):
         obs = env.reset()

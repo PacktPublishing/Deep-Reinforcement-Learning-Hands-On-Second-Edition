@@ -1,132 +1,161 @@
 #!/usr/bin/env python3
-import os
-import gym
 import ptan
+import pathlib
 import argparse
+import gym.wrappers
 import numpy as np
+import warnings
 
 import torch
 import torch.optim as optim
 
+from ignite.engine import Engine
+from ignite.contrib.handlers import tensorboard_logger as tb_logger
+
 from lib import environ, data, models, common, validation
 
-from tensorboardX import SummaryWriter
+SAVES_DIR = pathlib.Path("saves")
+STOCKS = "data/YNDX_160101_161231.csv"
+VAL_STOCKS = "data/YNDX_150101_151231.csv"
 
 BATCH_SIZE = 32
 BARS_COUNT = 10
-TARGET_NET_SYNC = 1000
-DEFAULT_STOCKS = "data/YNDX_160101_161231.csv"
-DEFAULT_VAL_STOCKS = "data/YNDX_150101_151231.csv"
+
+EPS_START = 1.0
+EPS_FINAL = 0.1
+EPS_STEPS = 1000000
 
 GAMMA = 0.99
 
 REPLAY_SIZE = 100000
 REPLAY_INITIAL = 10000
-
 REWARD_STEPS = 2
-
 LEARNING_RATE = 0.0001
-
 STATES_TO_EVALUATE = 1000
-EVAL_EVERY_STEP = 1000
-
-EPSILON_START = 1.0
-EPSILON_STOP = 0.1
-EPSILON_STEPS = 1000000
-
-CHECKPOINT_EVERY_STEP = 1000000
-VALIDATION_EVERY_STEP = 100000
 
 
 if __name__ == "__main__":
+    # get rid of missing metrics warning
+    warnings.simplefilter("ignore", category=UserWarning)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cuda", default=False, action="store_true", help="Enable cuda")
-    parser.add_argument("--data", default=DEFAULT_STOCKS, help="Stocks file or dir to train on, default=" + DEFAULT_STOCKS)
-    parser.add_argument("--year", type=int, help="Year to be used for training, if specified, overrides --data option")
-    parser.add_argument("--valdata", default=DEFAULT_VAL_STOCKS, help="Stocks data for validation, default=" + DEFAULT_VAL_STOCKS)
-    parser.add_argument("-r", "--run", required=True, help="Run name")
+    parser.add_argument(
+        "--cuda", help="Enable cuda", default=False,
+        action="store_true")
+    parser.add_argument(
+        "--data", default=STOCKS,
+        help=f"Stocks file or dir, default={STOCKS}")
+    parser.add_argument(
+        "--year", type=int,
+        help="Year to train on, overrides --data")
+    parser.add_argument(
+        "--val", default=VAL_STOCKS,
+        help="Validation data, default=" + VAL_STOCKS)
+    parser.add_argument(
+        "-r", "--run", required=True, help="Run name")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
-    saves_path = os.path.join("saves", args.run)
-    os.makedirs(saves_path, exist_ok=True)
+    saves_path = SAVES_DIR / args.run
+    saves_path.mkdir(parents=True, exist_ok=True)
 
-    if args.year is not None or os.path.isfile(args.data):
+    data_path = pathlib.Path(args.data)
+    val_path = pathlib.Path(args.val)
+
+    if args.year is not None or data_path.is_file():
         if args.year is not None:
             stock_data = data.load_year_data(args.year)
         else:
-            stock_data = {"YNDX": data.load_relative(args.data)}
-        env = environ.StocksEnv(stock_data, bars_count=BARS_COUNT, reset_on_close=True, state_1d=False, volumes=False)
-        env_tst = environ.StocksEnv(stock_data, bars_count=BARS_COUNT, reset_on_close=True, state_1d=False)
-    elif os.path.isdir(args.data):
-        env = environ.StocksEnv.from_dir(args.data, bars_count=BARS_COUNT, reset_on_close=True, state_1d=False)
-        env_tst = environ.StocksEnv.from_dir(args.data, bars_count=BARS_COUNT, reset_on_close=True, state_1d=False)
+            stock_data = {"YNDX": data.load_relative(data_path)}
+        env = environ.StocksEnv(
+            stock_data, bars_count=BARS_COUNT)
+        env_tst = environ.StocksEnv(
+            stock_data, bars_count=BARS_COUNT)
+    elif data_path.is_dir():
+        env = environ.StocksEnv.from_dir(
+            data_path, bars_count=BARS_COUNT)
+        env_tst = environ.StocksEnv.from_dir(
+            data_path, bars_count=BARS_COUNT)
     else:
         raise RuntimeError("No data to train on")
+
     env = gym.wrappers.TimeLimit(env, max_episode_steps=1000)
+    val_data = {"YNDX": data.load_relative(val_path)}
+    env_val = environ.StocksEnv(val_data, bars_count=BARS_COUNT)
 
-    val_data = {"YNDX": data.load_relative(args.valdata)}
-    env_val = environ.StocksEnv(val_data, bars_count=BARS_COUNT, reset_on_close=True, state_1d=False)
-
-    writer = SummaryWriter(comment="-simple-" + args.run)
-    net = models.SimpleFFDQN(env.observation_space.shape[0], env.action_space.n).to(device)
+    net = models.SimpleFFDQN(env.observation_space.shape[0],
+                             env.action_space.n).to(device)
     tgt_net = ptan.agent.TargetNet(net)
-    selector = ptan.actions.EpsilonGreedyActionSelector(EPSILON_START)
+
+    selector = ptan.actions.EpsilonGreedyActionSelector(EPS_START)
+    eps_tracker = ptan.actions.EpsilonTracker(
+        selector, EPS_START, EPS_FINAL, EPS_STEPS)
     agent = ptan.agent.DQNAgent(net, selector, device=device)
-    exp_source = ptan.experience.ExperienceSourceFirstLast(env, agent, GAMMA, steps_count=REWARD_STEPS)
-    buffer = ptan.experience.ExperienceReplayBuffer(exp_source, REPLAY_SIZE)
+    exp_source = ptan.experience.ExperienceSourceFirstLast(
+        env, agent, GAMMA, steps_count=REWARD_STEPS)
+    buffer = ptan.experience.ExperienceReplayBuffer(
+        exp_source, REPLAY_SIZE)
     optimizer = optim.Adam(net.parameters(), lr=LEARNING_RATE)
 
-    # main training loop
-    step_idx = 0
-    eval_states = None
-    best_mean_val = None
+    def process_batch(engine, batch):
+        optimizer.zero_grad()
+        loss_v = common.calc_loss(
+            batch, net, tgt_net.target_model,
+            gamma=GAMMA ** REWARD_STEPS, device=device)
+        loss_v.backward()
+        optimizer.step()
+        eps_tracker.frame(engine.state.iteration)
 
-    with common.RewardTracker(writer, np.inf, group_rewards=100) as reward_tracker:
-        while True:
-            step_idx += 1
-            buffer.populate(1)
-            selector.epsilon = max(EPSILON_STOP, EPSILON_START - step_idx / EPSILON_STEPS)
+        if getattr(engine.state, "eval_states", None) is None:
+            eval_states = buffer.sample(STATES_TO_EVALUATE)
+            eval_states = [np.array(transition.state, copy=False)
+                           for transition in eval_states]
+            engine.state.eval_states = np.array(eval_states, copy=False)
 
-            new_rewards = exp_source.pop_rewards_steps()
-            if new_rewards:
-                reward_tracker.reward(new_rewards[0], step_idx, selector.epsilon)
+        return {
+            "loss": loss_v.item(),
+            "epsilon": selector.epsilon,
+        }
 
-            if len(buffer) < REPLAY_INITIAL:
-                continue
+    engine = Engine(process_batch)
+    tb = common.setup_ignite(engine, exp_source, f"simple-{args.run}",
+                             extra_metrics=('values_mean',))
 
-            if eval_states is None:
-                print("Initial buffer populated, start training")
-                eval_states = buffer.sample(STATES_TO_EVALUATE)
-                eval_states = [np.array(transition.state, copy=False) for transition in eval_states]
-                eval_states = np.array(eval_states, copy=False)
+    @engine.on(ptan.ignite.PeriodEvents.ITERS_1000_COMPLETED)
+    def sync_eval(engine: Engine):
+        tgt_net.sync()
 
-            if step_idx % EVAL_EVERY_STEP == 0:
-                mean_val = common.calc_values_of_states(eval_states, net, device=device)
-                writer.add_scalar("values_mean", mean_val, step_idx)
-                if best_mean_val is None or best_mean_val < mean_val:
-                    if best_mean_val is not None:
-                        print("%d: Best mean value updated %.3f -> %.3f" % (step_idx, best_mean_val, mean_val))
-                    best_mean_val = mean_val
-                    torch.save(net.state_dict(), os.path.join(saves_path, "mean_val-%.3f.data" % mean_val))
+        mean_val = common.calc_values_of_states(
+            engine.state.eval_states, net, device=device)
+        engine.state.metrics["values_mean"] = mean_val
+        if getattr(engine.state, "best_mean_val", None) is None:
+            engine.state.best_mean_val = mean_val
+        if engine.state.best_mean_val < mean_val:
+            print("%d: Best mean value updated %.3f -> %.3f" % (
+                engine.state.iteration, engine.state.best_mean_val,
+                mean_val))
+            path = saves_path / ("mean_val-%.3f.data" % mean_val)
+            torch.save(net.state_dict(), path)
 
-            optimizer.zero_grad()
-            batch = buffer.sample(BATCH_SIZE)
-            loss_v = common.calc_loss(batch, net, tgt_net.target_model, GAMMA ** REWARD_STEPS, device=device)
-            loss_v.backward()
-            optimizer.step()
+    @engine.on(ptan.ignite.PeriodEvents.ITERS_100000_COMPLETED)
+    def validate(engine: Engine):
+        res = validation.validation_run(env_tst, net, device=device)
+        print("%d: test: %s" % (engine.state.iteration, res))
+        for key, val in res.items():
+            engine.state.metrics[key + "_tst"] = val
+        res = validation.validation_run(env_val, net, device=device)
+        print("%d: validation: %s" % (engine.state.iteration, res))
+        for key, val in res.items():
+            engine.state.metrics[key + "_val"] = val
 
-            if step_idx % TARGET_NET_SYNC == 0:
-                tgt_net.sync()
+    event = ptan.ignite.PeriodEvents.ITERS_100000_COMPLETED
+    tst_metrics = [m + "_tst" for m in validation.METRICS]
+    tst_handler = tb_logger.OutputHandler(
+        tag="test", metric_names=tst_metrics)
+    tb.attach(engine, log_handler=tst_handler, event_name=event)
 
-            if step_idx % CHECKPOINT_EVERY_STEP == 0:
-                idx = step_idx // CHECKPOINT_EVERY_STEP
-                torch.save(net.state_dict(), os.path.join(saves_path, "checkpoint-%3d.data" % idx))
+    val_metrics = [m + "_val" for m in validation.METRICS]
+    val_handler = tb_logger.OutputHandler(
+        tag="validation", metric_names=val_metrics)
+    tb.attach(engine, log_handler=val_handler, event_name=event)
 
-            if step_idx % VALIDATION_EVERY_STEP == 0:
-                res = validation.validation_run(env_tst, net, device=device)
-                for key, val in res.items():
-                    writer.add_scalar(key + "_test", val, step_idx)
-                res = validation.validation_run(env_val, net, device=device)
-                for key, val in res.items():
-                    writer.add_scalar(key + "_val", val, step_idx)
+    engine.run(common.batch_generator(buffer, REPLAY_INITIAL, BATCH_SIZE))

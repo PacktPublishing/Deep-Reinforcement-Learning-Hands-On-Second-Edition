@@ -1,6 +1,7 @@
 import gym
 import gym.spaces
 from gym.utils import seeding
+from gym.envs.registration import EnvSpec
 import enum
 import numpy as np
 
@@ -142,6 +143,7 @@ class State1D(State):
 
 class StocksEnv(gym.Env):
     metadata = {'render.modes': ['human']}
+    spec = EnvSpec("StocksEnv-v0")
 
     def __init__(self, prices, bars_count=DEFAULT_BARS_COUNT,
                  commission=DEFAULT_COMMISSION_PERC, reset_on_close=True, state_1d=False,
