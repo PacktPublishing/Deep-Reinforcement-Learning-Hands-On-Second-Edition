@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from typing import Iterable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import ptan
 import ptan.ignite as ptan_ignite
@@ -68,9 +68,19 @@ def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
 
 def setup_ignite(engine: Engine, exp_source, run_name: str,
                  extra_metrics: Iterable[str] = ()):
-    handler = ptan_ignite.EndOfEpisodeHandler(exp_source)
+    handler = ptan_ignite.EndOfEpisodeHandler(exp_source, subsample_end_of_episode=100)
     handler.attach(engine)
     ptan_ignite.EpisodeFPSHandler().attach(engine)
+
+    @engine.on(ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
+    def episode_completed(trainer: Engine):
+        passed = trainer.state.metrics.get('time_passed', 0)
+        print("Episode %d: reward=%.0f, steps=%s, "
+              "speed=%.1f f/s, elapsed=%s" % (
+            trainer.state.episode, trainer.state.episode_reward,
+            trainer.state.episode_steps,
+            trainer.state.metrics.get('avg_fps', 0),
+            timedelta(seconds=int(passed))))
 
     now = datetime.now().isoformat(timespec='minutes')
     logdir = f"runs/{now}-{run_name}"
