@@ -128,7 +128,7 @@ if __name__ == "__main__":
             torch.save(net.state_dict(), path)
             engine.state.best_mean_val = mean_val
 
-    @engine.on(ptan.ignite.PeriodEvents.ITERS_100000_COMPLETED)
+    @engine.on(ptan.ignite.PeriodEvents.ITERS_10000_COMPLETED)
     def validate(engine: Engine):
         res = validation.validation_run(env_tst, net, device=device)
         print("%d: tst: %s" % (engine.state.iteration, res))
@@ -149,7 +149,7 @@ if __name__ == "__main__":
             path = saves_path / ("val_reward-%.3f.data" % val_reward)
             torch.save(net.state_dict(), path)
 
-    event = ptan.ignite.PeriodEvents.ITERS_100000_COMPLETED
+    event = ptan.ignite.PeriodEvents.ITERS_10000_COMPLETED
     tst_metrics = [m + "_tst" for m in validation.METRICS]
     tst_handler = tb_logger.OutputHandler(
         tag="test", metric_names=tst_metrics)
