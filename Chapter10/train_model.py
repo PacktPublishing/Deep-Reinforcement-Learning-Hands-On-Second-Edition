@@ -124,7 +124,7 @@ if __name__ == "__main__":
             print("%d: Best mean value updated %.3f -> %.3f" % (
                 engine.state.iteration, engine.state.best_mean_val,
                 mean_val))
-            path = saves_path / ("mean_val-%.3f.data" % mean_val)
+            path = saves_path / ("mean_value-%.3f.data" % mean_val)
             torch.save(net.state_dict(), path)
             engine.state.best_mean_val = mean_val
 
@@ -138,6 +138,16 @@ if __name__ == "__main__":
         print("%d: val: %s" % (engine.state.iteration, res))
         for key, val in res.items():
             engine.state.metrics[key + "_val"] = val
+        val_reward = res['episode_reward']
+        if getattr(engine.state, "best_val_reward", None) is None:
+            engine.state.best_val_reward = val_reward
+        if engine.state.best_val_reward < val_reward:
+            print("Best validation reward updated: %.3f -> %.3f, model saved" % (
+                engine.state.best_val_reward, val_reward
+            ))
+            engine.state.best_val_reward = val_reward
+            path = saves_path / ("val_reward-%.3f.data" % val_reward)
+            torch.save(net.state_dict(), path)
 
     event = ptan.ignite.PeriodEvents.ITERS_100000_COMPLETED
     tst_metrics = [m + "_tst" for m in validation.METRICS]
