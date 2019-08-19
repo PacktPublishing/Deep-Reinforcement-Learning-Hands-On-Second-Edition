@@ -5,6 +5,7 @@ import time
 import pathlib
 import argparse
 import itertools
+import datetime
 import numpy as np
 
 from textworld.gym import register_games
