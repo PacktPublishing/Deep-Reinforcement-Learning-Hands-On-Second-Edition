@@ -47,9 +47,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-g", "--game", default="simple",
                         help="Game prefix to be used during training, default=simple")
-    parser.add_argument("-s", "--suffices", action='append',
-                        help="Game suffices to be appended to game prefix. Might be given "
-                             "several times to train on multiple games, default=1")
+    # parser.add_argument("-s", "--suffices", action='append',
+    #                     help="Game suffices to be appended to game prefix. Might be given "
+    #                          "several times to train on multiple games, default=1")
+    parser.add_argument("-s", "--suffices", type=int, default=1, help="Count of indices to use in games")
     parser.add_argument("-v", "--validation", default='-val',
                         help="Suffix for game used for validation, default=-val")
     parser.add_argument("--cuda", default=False, action='store_true',
@@ -57,9 +58,8 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--run", required=True, help="Run name")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
-    suffices = ['1'] if args.suffices is None else args.suffices
 
-    game_files = ["games/%s%s.ulx" % (args.game, s) for s in suffices]
+    game_files = ["games/%s%s.ulx" % (args.game, s) for s in range(1, args.siffices+1)]
     if not all(map(lambda p: pathlib.Path(p).exists(), game_files)):
         raise RuntimeError(f"Some game files from {game_files} not found! Probably you need to run make_games.sh")
     env_id = register_games(game_files, request_infos=EnvInfos(**EXTRA_GAME_INFO), name=args.game)
