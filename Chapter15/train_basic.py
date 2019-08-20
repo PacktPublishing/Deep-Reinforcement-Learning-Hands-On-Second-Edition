@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 import gym
 import ptan
-import time
 import pathlib
 import argparse
 import itertools
-import datetime
 import numpy as np
+import warnings
 
 from textworld.gym import register_games
 from textworld.envs.wrappers.filter import EnvInfos
 
-from lib import preproc, model
+from lib import preproc, model, common
 
 import torch
 import torch.optim as optim
+from ignite.engine import Engine
 
 
 EXTRA_GAME_INFO = {
@@ -31,7 +31,7 @@ ENC_SIZE = 20
 EMB_SIZE = 20
 
 REPLAY_SIZE = 10000
-REPLAY_INITIAL = 100
+REPLAY_INITIAL = 1000
 GAMMA = 0.9
 LEARNING_RATE = 5e-5
 SYNC_NETS = 100
@@ -43,6 +43,7 @@ STEPS_EPSILON = 1000
 
 
 if __name__ == "__main__":
+    warnings.simplefilter("ignore", category=UserWarning)
     parser = argparse.ArgumentParser()
     parser.add_argument("-g", "--game", default="simple",
                         help="Game prefix to be used during training, default=simple")
@@ -53,6 +54,7 @@ if __name__ == "__main__":
                         help="Suffix for game used for validation, default=-val")
     parser.add_argument("--cuda", default=False, action='store_true',
                         help="Use cuda for training")
+    parser.add_argument("-r", "--run", required=True, help="Run name")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
     suffices = ['1'] if args.suffices is None else args.suffices
@@ -68,6 +70,9 @@ if __name__ == "__main__":
 
     env = gym.make(env_id)
     env = preproc.TextWorldPreproc(env)
+
+    val_env = gym.make(val_env_id)
+    val_env = preproc.TextWorldPreproc(val_env)
 
     prep = preproc.Preprocessor(
         dict_size=env.observation_space.vocab_size,
@@ -89,44 +94,46 @@ if __name__ == "__main__":
     optimizer = optim.RMSprop(itertools.chain(net.parameters(), prep.parameters()),
                               lr=LEARNING_RATE, eps=1e-5)
 
-    steps_done = 0
-    episodes_done = 0
-    losses = []
-    rewards = []
-    prev_steps = 0
-    start_ts = prev_ts = time.time()
-
-    for _ in range(10000):
-        steps_done += 1
-        buffer.populate(1)
-        rewards_steps = exp_source.pop_rewards_steps()
-        if rewards_steps:
-            speed = (steps_done - prev_steps) / (time.time() - prev_ts)
-            prev_steps = steps_done
-            prev_ts = time.time()
-            for rw, steps in rewards_steps:
-                episodes_done += 1
-                print("%d: Done %d episodes: reward = %.2f, steps = %d, speed = %.2f steps/sec, epsilon = %.2f" % (
-                    steps_done, episodes_done, rw, steps, speed, agent.epsilon))
-                rewards.append(rw)
-            if rewards and np.mean(rewards[-10:]) == 6.0:
-                print(
-                    "Environment has been solved in %s, congrats!" % datetime.timedelta(seconds=time.time() - start_ts))
-                break
-        if len(buffer) < REPLAY_INITIAL:
-            continue
-
-        batch = buffer.sample(BATCH_SIZE)
+    def process_batch(engine, batch):
         optimizer.zero_grad()
         loss_t = model.calc_loss_dqn(batch, prep, tgt_prep.target_model,
                                      net, tgt_net.target_model, GAMMA, device=device)
         loss_t.backward()
         optimizer.step()
-        losses.append(loss_t.item())
-
-        if steps_done % SYNC_NETS == 0:
-            tgt_prep.sync()
+        eps = INITIAL_EPSILON - engine.state.iteration / STEPS_EPSILON
+        agent.epsilon = max(FINAL_EPSILON, eps)
+        if engine.state.iteration % SYNC_NETS == 0:
             tgt_net.sync()
-            print("%d: sync nets" % steps_done)
+            tgt_prep.sync()
+        return {
+            "loss": loss_t.item(),
+            "epsilon": agent.epsilon,
+        }
 
-        agent.epsilon = max(FINAL_EPSILON, INITIAL_EPSILON - steps_done / STEPS_EPSILON)
+    engine = Engine(process_batch)
+    common.setup_ignite(engine, exp_source, f"basic_{args.run}",
+                        extra_metrics=('val_reward', 'val_steps'))
+
+    @engine.on(ptan.ignite.PeriodEvents.ITERS_100_COMPLETED)
+    def validate(engine):
+        reward = 0.0
+        steps = 0
+
+        obs = val_env.reset()
+
+        while True:
+            obs_t = prep.encode_sequences([obs['obs']]).to(device)
+            cmd_t = prep.encode_commands(obs['admissible_commands']).to(device)
+            q_vals = net.q_values(obs_t, cmd_t)
+            act = np.argmax(q_vals)
+
+            obs, r, is_done, _ = val_env.step(act)
+            steps += 1
+            reward += r
+            if is_done:
+                break
+        engine.state.metrics['val_reward'] = reward
+        engine.state.metrics['val_steps'] = steps
+        print("Validation got %.3f reward in %d steps" % (reward, steps))
+
+    engine.run(common.batch_generator(buffer, REPLAY_INITIAL, BATCH_SIZE))
