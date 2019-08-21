@@ -59,7 +59,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
-    game_files = ["games/%s%s.ulx" % (args.game, s) for s in range(1, args.siffices+1)]
+    game_files = ["games/%s%s.ulx" % (args.game, s) for s in range(1, args.suffices+1)]
     if not all(map(lambda p: pathlib.Path(p).exists(), game_files)):
         raise RuntimeError(f"Some game files from {game_files} not found! Probably you need to run make_games.sh")
     env_id = register_games(game_files, request_infos=EnvInfos(**EXTRA_GAME_INFO), name=args.game)
