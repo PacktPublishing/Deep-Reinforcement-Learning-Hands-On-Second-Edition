@@ -129,7 +129,7 @@ if __name__ == "__main__":
         engine.state.metrics['val_reward'] = reward
         engine.state.metrics['val_steps'] = steps
         print("Validation got %.3f reward in %d steps" % (reward, steps))
-        best_val_reward = getattr(engine.state, "best_val_reward", default=None)
+        best_val_reward = getattr(engine.state, "best_val_reward", None)
         if best_val_reward is None:
             engine.state.best_val_reward = reward
         elif best_val_reward < reward:
