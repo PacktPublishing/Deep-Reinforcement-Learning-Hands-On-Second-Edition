@@ -25,21 +25,10 @@ EXTRA_GAME_INFO = {
     "policy_commands": True,
 }
 
-# length of encoder's output
-ENC_SIZE = 20
-# length of embeddings to be learned
-EMB_SIZE = 20
 
-REPLAY_SIZE = 10000
-REPLAY_INITIAL = 1000
 GAMMA = 0.9
 LEARNING_RATE = 5e-5
-SYNC_NETS = 100
 BATCH_SIZE = 64
-
-INITIAL_EPSILON = 1.0
-FINAL_EPSILON = 0.2
-STEPS_EPSILON = 1000
 
 
 if __name__ == "__main__":
@@ -47,10 +36,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-g", "--game", default="simple",
                         help="Game prefix to be used during training, default=simple")
-    # parser.add_argument("-s", "--suffices", action='append',
-    #                     help="Game suffices to be appended to game prefix. Might be given "
-    #                          "several times to train on multiple games, default=1")
-    parser.add_argument("-s", "--suffices", type=int, default=1, help="Count of indices to use in games")
+    parser.add_argument("--params", choices=list(common.PARAMS.keys()),
+                        help="Training params, could be one of %s" % (list(common.PARAMS.keys())))
+    parser.add_argument("-s", "--suffices", type=int, default=1,
+                        help="Count of game indices to use during training, default=1")
     parser.add_argument("-v", "--validation", default='-val',
                         help="Suffix for game used for validation, default=-val")
     parser.add_argument("--cuda", default=False, action='store_true',
@@ -58,6 +47,7 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--run", required=True, help="Run name")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
+    params = common.PARAMS[args.params]
 
     game_files = ["games/%s%s.ulx" % (args.game, s) for s in range(1, args.suffices+1)]
     if not all(map(lambda p: pathlib.Path(p).exists(), game_files)):
@@ -76,20 +66,20 @@ if __name__ == "__main__":
 
     prep = preproc.Preprocessor(
         dict_size=env.observation_space.vocab_size,
-        emb_size=EMB_SIZE, num_sequences=env.num_fields,
-        enc_output_size=ENC_SIZE).to(device)
+        emb_size=params.embeddings, num_sequences=env.num_fields,
+        enc_output_size=params.encoder_size).to(device)
     tgt_prep = ptan.agent.TargetNet(prep)
 
-    net = model.DQNModel(obs_size=env.num_fields * ENC_SIZE,
-                         cmd_size=ENC_SIZE)
+    net = model.DQNModel(obs_size=env.num_fields * params.encoder_size,
+                         cmd_size=params.encoder_size)
     net = net.to(device)
     tgt_net = ptan.agent.TargetNet(net)
 
-    agent = model.DQNAgent(net, prep, epsilon=INITIAL_EPSILON, device=device)
+    agent = model.DQNAgent(net, prep, epsilon=1, device=device)
     exp_source = ptan.experience.ExperienceSourceFirstLast(
         env, agent, gamma=GAMMA, steps_count=1)
     buffer = ptan.experience.ExperienceReplayBuffer(
-        exp_source, REPLAY_SIZE)
+        exp_source, params.replay_size)
 
     optimizer = optim.RMSprop(itertools.chain(net.parameters(), prep.parameters()),
                               lr=LEARNING_RATE, eps=1e-5)
@@ -100,9 +90,9 @@ if __name__ == "__main__":
                                      net, tgt_net.target_model, GAMMA, device=device)
         loss_t.backward()
         optimizer.step()
-        eps = INITIAL_EPSILON - engine.state.iteration / STEPS_EPSILON
-        agent.epsilon = max(FINAL_EPSILON, eps)
-        if engine.state.iteration % SYNC_NETS == 0:
+        eps = 1 - engine.state.iteration / params.epsilon_steps
+        agent.epsilon = max(params.epsilon_final, eps)
+        if engine.state.iteration % params.sync_nets == 0:
             tgt_net.sync()
             tgt_prep.sync()
         return {
@@ -111,7 +101,11 @@ if __name__ == "__main__":
         }
 
     engine = Engine(process_batch)
-    common.setup_ignite(engine, exp_source, f"basic_{args.run}",
+    run_name = f"{args.params}_{args.run}"
+    save_path = pathlib.Path("saves") / run_name
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    common.setup_ignite(engine, exp_source, run_name,
                         extra_metrics=('val_reward', 'val_steps'))
 
     @engine.on(ptan.ignite.PeriodEvents.ITERS_100_COMPLETED)
@@ -135,5 +129,25 @@ if __name__ == "__main__":
         engine.state.metrics['val_reward'] = reward
         engine.state.metrics['val_steps'] = steps
         print("Validation got %.3f reward in %d steps" % (reward, steps))
+        best_val_reward = getattr(engine.state, "best_val_reward", default=None)
+        if best_val_reward is None:
+            engine.state.best_val_reward = reward
+        elif best_val_reward < reward:
+            print("Best validation reward updated: %s -> %s" % (best_val_reward, reward))
+            save_prep_name = save_path / ("best_val_%.3f_p.dat" % reward)
+            save_net_name = save_path / ("best_val_%.3f_n.dat" % reward)
+            torch.save(prep.state_dict(), save_prep_name)
+            torch.save(net.state_dict(), save_net_name)
 
-    engine.run(common.batch_generator(buffer, REPLAY_INITIAL, BATCH_SIZE))
+    @engine.on(ptan.ignite.EpisodeEvents.BEST_REWARD_REACHED)
+    def best_reward_updated(trainer: Engine):
+        reward = trainer.state.metrics['avg_reward']
+        if reward > 0:
+            save_prep_name = save_path / ("best_train_%.3f_p.dat" % reward)
+            save_net_name = save_path / ("best_train_%.3f_n.dat" % reward)
+            torch.save(prep.state_dict(), save_prep_name)
+            torch.save(net.state_dict(), save_net_name)
+            print("%d: best avg training reward: %.3f, saved" % (
+                trainer.state.iteration, reward))
+
+    engine.run(common.batch_generator(buffer, params.replay_initial, BATCH_SIZE))

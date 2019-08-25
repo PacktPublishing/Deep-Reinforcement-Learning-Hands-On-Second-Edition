@@ -1,4 +1,5 @@
 from typing import Iterable
+from types import SimpleNamespace
 from datetime import timedelta, datetime
 
 import ptan
@@ -6,6 +7,29 @@ import ptan.ignite as ptan_ignite
 from ignite.engine import Engine
 from ignite.metrics import RunningAverage
 from ignite.contrib.handlers import tensorboard_logger as tb_logger
+
+
+PARAMS = {
+    'small': SimpleNamespace(**{
+        'encoder_size': 20,
+        'embeddings': 20,
+        'replay_size': 10000,
+        'replay_initial': 1000,
+        'sync_nets': 100,
+        'epsilon_steps': 1000,
+        'epsilon_final': 0.2,
+    }),
+
+    'medium': SimpleNamespace(**{
+        'encoder_size': 256,
+        'embeddings': 128,
+        'replay_size': 100000,
+        'replay_initial': 10000,
+        'sync_nets': 200,
+        'epsilon_steps': 10000,
+        'epsilon_final': 0.2,
+    })
+}
 
 
 def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
@@ -25,21 +49,20 @@ def setup_ignite(engine: Engine, exp_source, run_name: str,
     @engine.on(ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
     def episode_completed(trainer: Engine):
         passed = trainer.state.metrics.get('time_passed', 0)
-        print("Episode %d: reward=%.0f, steps=%s, "
-              "speed=%.1f f/s, elapsed=%s" % (
-            trainer.state.episode, trainer.state.episode_reward,
-            trainer.state.episode_steps,
+        avg_steps = trainer.state.metrics.get('avg_steps', 50)
+        avg_reward = trainer.state.metrics.get('avg_reward', 0.0)
+        print("Episode %d: reward=%.0f (avg %.2f), "
+              "steps=%s (avg %.2f), speed=%.1f f/s, "
+              "elapsed=%s" % (
+            trainer.state.episode,
+            trainer.state.episode_reward, avg_reward,
+            trainer.state.episode_steps, avg_steps,
             trainer.state.metrics.get('avg_fps', 0),
             timedelta(seconds=int(passed))))
 
-    @engine.on(ptan_ignite.EpisodeEvents.BOUND_REWARD_REACHED)
-    def game_solved(trainer: Engine):
-        passed = trainer.state.metrics['time_passed']
-        print("Game solved in %s, after %d episodes "
-              "and %d iterations!" % (
-            timedelta(seconds=int(passed)),
-            trainer.state.episode, trainer.state.iteration))
-        trainer.should_terminate = True
+        if avg_steps < 10:
+            print("Average steps has fallen below 10, stop training")
+            trainer.should_terminate = True
 
     now = datetime.now().isoformat(timespec='minutes')
     logdir = f"runs/{now}-{run_name}"
@@ -47,7 +70,7 @@ def setup_ignite(engine: Engine, exp_source, run_name: str,
     run_avg = RunningAverage(output_transform=lambda v: v['loss'])
     run_avg.attach(engine, "avg_loss")
 
-    metrics = ['reward', 'steps', 'avg_reward']
+    metrics = ['reward', 'steps', 'avg_reward', 'avg_steps']
     handler = tb_logger.OutputHandler(
         tag="episodes", metric_names=metrics)
     event = ptan_ignite.EpisodeEvents.EPISODE_COMPLETED
