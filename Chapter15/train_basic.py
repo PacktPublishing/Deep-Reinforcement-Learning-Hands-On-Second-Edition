@@ -138,6 +138,7 @@ if __name__ == "__main__":
             save_net_name = save_path / ("best_val_%.3f_n.dat" % reward)
             torch.save(prep.state_dict(), save_prep_name)
             torch.save(net.state_dict(), save_net_name)
+            engine.state.best_val_reward = reward
 
     @engine.on(ptan.ignite.EpisodeEvents.BEST_REWARD_REACHED)
     def best_reward_updated(trainer: Engine):
