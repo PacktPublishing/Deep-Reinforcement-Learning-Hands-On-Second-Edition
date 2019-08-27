@@ -49,6 +49,7 @@ if __name__ == "__main__":
     step_idx = 0
     done_episodes = 0
     reward_sum = 0.0
+    bs_smoothed = None
 
     batch_states, batch_actions, batch_scales = [], [], []
 
@@ -113,12 +114,18 @@ if __name__ == "__main__":
 
         writer.add_scalar("baseline", baseline, step_idx)
         writer.add_scalar("entropy", entropy_v.item(), step_idx)
-        writer.add_scalar("batch_scales", np.mean(batch_scales), step_idx)
         writer.add_scalar("loss_entropy", entropy_loss_v.item(), step_idx)
         writer.add_scalar("loss_policy", loss_policy_v.item(), step_idx)
         writer.add_scalar("loss_total", loss_v.item(), step_idx)
         writer.add_scalar("grad_l2", grad_means / grad_count, step_idx)
         writer.add_scalar("grad_max", grad_max, step_idx)
+
+        bs = np.mean(batch_scales)
+        if bs_smoothed is None:
+            bs_smoothed = bs
+        else:
+            bs_smoothed = bs * 0.05 + bs_smoothed * 0.95
+        writer.add_scalar("batch_scales", bs_smoothed, step_idx)
 
         batch_states.clear()
         batch_actions.clear()
