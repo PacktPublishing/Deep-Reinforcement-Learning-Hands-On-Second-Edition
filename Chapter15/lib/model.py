@@ -11,7 +11,8 @@ from . import preproc
 
 
 class DQNModel(nn.Module):
-    def __init__(self, obs_size: int, cmd_size: int, hid_size: int = 256):
+    def __init__(self, obs_size: int, cmd_size: int,
+                 hid_size: int = 256):
         super(DQNModel, self).__init__()
 
         self.net = nn.Sequential(
@@ -33,7 +34,8 @@ class DQNModel(nn.Module):
         """
         result = []
         for cmd_t in commands_t:
-            result.append(self(obs_t, cmd_t.unsqueeze(0))[0].cpu().item())
+            qval = self(obs_t, cmd_t.unsqueeze(0))[0].cpu().item()
+            result.append(qval)
         return result
 
 
@@ -42,7 +44,7 @@ class DQNAgent(ptan.agent.BaseAgent):
                  preprocessor: preproc.Preprocessor,
                  epsilon: float = 0.0, device="cpu"):
         self.net = net
-        self.preprocessor = preprocessor
+        self._prepr = preprocessor
         self._epsilon = epsilon
         self.device = device
 
@@ -67,8 +69,10 @@ class DQNAgent(ptan.agent.BaseAgent):
             if random.random() <= self.epsilon:
                 actions.append(random.randrange(len(commands)))
             else:
-                obs_t = self.preprocessor.encode_sequences([state['obs']]).to(self.device)
-                commands_t = self.preprocessor.encode_commands(commands).to(self.device)
+                obs_t = self._prepr.encode_sequences(
+                    [state['obs']]).to(self.device)
+                commands_t = self._prepr.encode_commands(commands)
+                commands_t = commands_t.to(self.device)
                 q_vals = self.net.q_values(obs_t, commands_t)
                 actions.append(np.argmax(q_vals))
         return actions, agent_states

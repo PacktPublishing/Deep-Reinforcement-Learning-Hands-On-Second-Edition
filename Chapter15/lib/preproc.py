@@ -1,6 +1,6 @@
 import gym
 import logging
-from typing import Optional, Iterable
+from typing import Optional, Iterable, List
 from textworld.gym import spaces as tw_spaces
 
 import torch
@@ -154,6 +154,15 @@ class Preprocessor(nn.Module):
             self.add_module(f"enc_{idx}", enc)
         self.enc_commands = Encoder(emb_size, enc_output_size)
 
+    def _apply_encoder(self, batch: List[List[int]],
+                       encoder: Encoder):
+        dev = self.emb.weight.device
+        batch_t = [self.emb(torch.tensor(sample).to(dev))
+                   for sample in batch]
+        batch_seq = rnn_utils.pack_sequence(
+            batch_t, enforce_sorted=False)
+        return encoder(batch_seq)
+
     def encode_sequences(self, batches):
         """
         Forward pass of Preprocessor
@@ -165,14 +174,6 @@ class Preprocessor(nn.Module):
             data.append(self._apply_encoder(enc_batch, enc))
         res_t = torch.cat(data, dim=1)
         return res_t
-
-    def _apply_encoder(self, batch, encoder):
-        dev = self.emb.weight.device
-        batch_t = [self.emb(torch.tensor(sample).to(dev))
-                   for sample in batch]
-        batch_seq = rnn_utils.pack_sequence(
-            batch_t, enforce_sorted=False)
-        return encoder(batch_seq)
 
     def encode_commands(self, batch):
         """

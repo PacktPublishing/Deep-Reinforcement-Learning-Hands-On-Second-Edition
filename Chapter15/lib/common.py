@@ -60,7 +60,7 @@ def setup_ignite(engine: Engine, exp_source, run_name: str,
             trainer.state.metrics.get('avg_fps', 0),
             timedelta(seconds=int(passed))))
 
-        if avg_steps < 10 and trainer.state.episode > 100:
+        if avg_steps < 15 and trainer.state.episode > 100:
             print("Average steps has fallen below 10, stop training")
             trainer.should_terminate = True
 
