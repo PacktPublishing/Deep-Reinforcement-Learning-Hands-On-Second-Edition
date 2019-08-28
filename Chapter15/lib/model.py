@@ -206,3 +206,41 @@ class CommandModel(nn.Module):
             inp_t = self.emb(tokens)
             inp_t = inp_t.unsqueeze(1)
         return commands, logits
+
+
+class A2CModel(nn.Module):
+    def __init__(self, obs_size: int, hid_size: int = 256):
+        super(A2CModel, self).__init__()
+
+        self.value = nn.Sequential(
+            nn.Linear(obs_size, hid_size),
+            nn.ReLU(),
+            nn.Linear(hid_size, 1)
+        )
+
+    def forward(self, obs):
+        return self.value(obs)
+
+
+class CmdAgent(ptan.agent.BaseAgent):
+    def __init__(self, env, cmd: CommandModel, preprocessor: preproc.Preprocessor,
+                 device = "cpu"):
+        self.env = env
+        self.cmd = cmd
+        self.prepr = preprocessor
+        self.device = device
+
+    @torch.no_grad()
+    def __call__(self, states, agent_states=None):
+        if agent_states is None:
+            agent_states = [None] * len(states)
+
+        actions = []
+        for state in states:
+            obs_t = self.prepr.encode_sequences([state['obs']]).to(self.device)
+            commands, _ = self.cmd(obs_t)
+            cmd = commands[0][0]
+            tokens = [self.env.action_space.id2w[t] for t in cmd]
+            action = " ".join(tokens)
+            actions.append(action)
+        return actions, agent_states

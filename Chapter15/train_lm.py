@@ -1,9 +1,11 @@
 import gym
+import ptan
 from textworld.gym import register_games
 from textworld.envs.wrappers.filter import EnvInfos
 
 from lib import preproc, model, common
 
+GAMMA = 0.9
 
 
 EXTRA_GAME_INFO = {
@@ -14,7 +16,7 @@ EXTRA_GAME_INFO = {
 }
 
 
-def run():
+def run(device = "cpu"):
     env_id = register_games(["games/simple1.ulx"], request_infos=EnvInfos(**EXTRA_GAME_INFO))
     env = gym.make(env_id)
     env = preproc.TextWorldPreproc(env, use_admissible_commands=False, reward_wrong_last_command=-1)
@@ -29,11 +31,20 @@ def run():
                              max_tokens=env.action_space.max_length,
                              max_commands=5, start_token=env.action_space.BOS_id,
                              sep_token=env.action_space.SEP_id)
+    net = model.A2CModel(obs_size=env.num_fields * params.encoder_size)
+    agent = model.CmdAgent(env, cmd, prep, device=device)
+    exp_source = ptan.experience.ExperienceSourceFirstLast(
+        env, agent, gamma=GAMMA, steps_count=1)
+
+    batch = []
+    for exp in exp_source:
+        batch.append(exp)
+        break
 
     s = env.reset()
     obs_t = prep.encode_sequences([s['obs']])
     print(obs_t)
-    r = cmd(obs_t)
+    tokens, logits = cmd(obs_t)
 
     return env, prep, cmd
 
