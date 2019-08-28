@@ -135,3 +135,41 @@ def calc_loss_dqn(batch, preprocessor, tgt_preprocessor, net,
     tgt_q_t = torch.tensor(rewards) + gamma * torch.tensor(next_best_qs)
     tgt_q_t = tgt_q_t.to(device)
     return F.mse_loss(q_values_t.squeeze(-1), tgt_q_t)
+
+
+class CommandModel(nn.Module):
+    def __init__(self, obs_size: int, dict_size: int, embeddings: nn.Embedding,
+                 max_tokens: int, max_commands: int,
+                 start_token: int):
+        super(CommandModel, self).__init__()
+
+        self.emb = embeddings
+        self.max_tokens = max_commands
+        self.max_tokens = max_tokens
+        self.start_token = start_token
+
+        self.rnn = nn.LSTM(
+            input_size=embeddings.embedding_dim,
+            hidden_size=obs_size, batch_first=True)
+        self.out = nn.Linear(in_features=obs_size,
+                             out_features=dict_size)
+
+    def forward(self, obs_batch):
+        """
+        Generate commands from batch of encoded observations
+        :param obs_batch: tensor of (batch, obs_size)
+        :return: list of tuples ([token_ids], logit tensor)
+        """
+        batch_size = obs_batch.size(0)
+
+        # preprare input tensor with start token embeddings
+        inp_t = torch.value(self.start_token, dims=(batch_size, ))
+        inp_t = self.emb(inp_t)
+
+        out, hid = self.rnn(inp_t, (obs_batch, obs_batch))
+        out_t = self.out(out)
+        # remember logits
+        # apply softmax
+        # sample from distribution
+        # check for end of command condition
+        # lookup embeddings
