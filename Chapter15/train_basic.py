@@ -22,7 +22,6 @@ EXTRA_GAME_INFO = {
     "description": True,
     "intermediate_reward": True,
     "admissible_commands": True,
-    "policy_commands": True,
 }
 
 

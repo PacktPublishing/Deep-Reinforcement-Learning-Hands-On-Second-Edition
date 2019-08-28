@@ -22,7 +22,8 @@ class TextWorldPreproc(gym.Wrapper):
                          'description', 'inventory'),
                  use_admissible_commands: bool = True,
                  use_intermediate_reward: bool = True,
-                 tokens_limit: Optional[int] = None):
+                 tokens_limit: Optional[int] = None,
+                 reward_wrong_last_command: Optional[float] = None):
         """
         :param env: TextWorld env to be wrapped
         :param encode_raw_text: flag to encode raw texts
@@ -30,6 +31,7 @@ class TextWorldPreproc(gym.Wrapper):
         :param use_admissible_commands: use list of commands
         :param use_intermediate_reward: intermediate reward
         :param tokens_limit: limit tokens in encoded fields
+        :param reward_wrong_last_command: if given, this reward will be given if 'last_command' observation field is 'None'.
         """
         super(TextWorldPreproc, self).__init__(env)
         if not isinstance(env.observation_space, tw_spaces.Word):
@@ -45,6 +47,7 @@ class TextWorldPreproc(gym.Wrapper):
         self._last_admissible_commands = None
         self._last_extra_info = None
         self._tokens_limit = tokens_limit
+        self._reward_wrong_last_command = reward_wrong_last_command
         self._cmd_hist = []
 
     @property
@@ -90,6 +93,10 @@ class TextWorldPreproc(gym.Wrapper):
         obs, r, is_done, extra = self.env.step(action)
         if self._use_intermedate_reward:
             r += extra.get('intermediate_reward', 0)
+        if self._reward_wrong_last_command is not None:
+            # that value is here if we gave a nonsense command
+            if extra.get('last_command', '') == 'None':
+                r += self._reward_wrong_last_command
         new_extra = dict(extra)
         fields = list(self._encode_extra_field)
         fields.append('admissible_commands')
@@ -145,6 +152,7 @@ class Preprocessor(nn.Module):
         """
         super(Preprocessor, self).__init__()
 
+        self._enc_output_size = enc_output_size
         self.emb = nn.Embedding(num_embeddings=dict_size,
                                 embedding_dim=emb_size)
         self.encoders = []
@@ -153,6 +161,14 @@ class Preprocessor(nn.Module):
             self.encoders.append(enc)
             self.add_module(f"enc_{idx}", enc)
         self.enc_commands = Encoder(emb_size, enc_output_size)
+
+    @property
+    def obs_enc_size(self):
+        return self._enc_output_size * len(self.encoders)
+
+    @property
+    def cmd_enc_size(self):
+        return self._enc_output_size
 
     def _apply_encoder(self, batch: List[List[int]],
                        encoder: Encoder):

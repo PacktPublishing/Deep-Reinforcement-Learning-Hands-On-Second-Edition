@@ -6,6 +6,7 @@ from typing import List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.distributions as t_distr
 
 from . import preproc
 
@@ -140,13 +141,14 @@ def calc_loss_dqn(batch, preprocessor, tgt_preprocessor, net,
 class CommandModel(nn.Module):
     def __init__(self, obs_size: int, dict_size: int, embeddings: nn.Embedding,
                  max_tokens: int, max_commands: int,
-                 start_token: int):
+                 start_token: int, sep_token: int):
         super(CommandModel, self).__init__()
 
         self.emb = embeddings
-        self.max_tokens = max_commands
+        self.max_commands = max_commands
         self.max_tokens = max_tokens
         self.start_token = start_token
+        self.sep_token = sep_token
 
         self.rnn = nn.LSTM(
             input_size=embeddings.embedding_dim,
@@ -158,18 +160,49 @@ class CommandModel(nn.Module):
         """
         Generate commands from batch of encoded observations
         :param obs_batch: tensor of (batch, obs_size)
-        :return: list of tuples ([token_ids], logit tensor)
+        :return: list of tuples ([token_ids], [logits])
         """
         batch_size = obs_batch.size(0)
+        # list of finalized commands and logits for every observation in batch
+        commands = [[] for _ in range(batch_size)]
+        logits = [[] for _ in range(batch_size)]
+
+        # currently being constructed list
+        cur_commands = [[] for _ in range(batch_size)]
+        cur_logits = [[] for _ in range(batch_size)]
 
         # preprare input tensor with start token embeddings
-        inp_t = torch.value(self.start_token, dims=(batch_size, ))
+        inp_t = torch.full((batch_size, ), self.start_token, dtype=torch.long)
+        inp_t = inp_t.to(obs_batch.device)
         inp_t = self.emb(inp_t)
+        # adding time dimension (dim=1, as batch_first=True)
+        inp_t = inp_t.unsqueeze(1)
+        p_hid_t = obs_batch.unsqueeze(1)
+        hid = (p_hid_t, p_hid_t)
 
-        out, hid = self.rnn(inp_t, (obs_batch, obs_batch))
-        out_t = self.out(out)
-        # remember logits
-        # apply softmax
-        # sample from distribution
-        # check for end of command condition
-        # lookup embeddings
+        while True:
+            out, hid = self.rnn(inp_t, hid)
+            out = out.squeeze(1)
+            # output logits for batch at current time step
+            out_t = self.out(out)
+
+            cat = t_distr.Categorical(logits=out_t)
+            tokens = cat.sample()
+
+            for idx, token in enumerate(tokens):
+                token = token.item()
+                cur_commands[idx].append(token)
+                cur_logits[idx].append(out_t[idx])
+                if token == self.sep_token or len(cur_commands[idx]) == self.max_tokens:
+                    l = len(commands[idx])
+                    if l < self.max_commands:
+                        commands[idx].append(cur_commands[idx])
+                        logits[idx].append(cur_logits[idx])
+                    cur_commands[idx] = []
+                    cur_logits[idx] = []
+            if min(map(len, commands)) == self.max_commands:
+                break
+            # convert tokens into input tensor
+            inp_t = self.emb(tokens)
+            inp_t = inp_t.unsqueeze(1)
+        return commands, logits
