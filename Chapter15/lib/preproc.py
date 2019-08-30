@@ -21,6 +21,7 @@ class TextWorldPreproc(gym.Wrapper):
                  encode_extra_fields: Iterable[str] = (
                          'description', 'inventory'),
                  use_admissible_commands: bool = True,
+                 keep_admissible_commands: bool = False,
                  use_intermediate_reward: bool = True,
                  tokens_limit: Optional[int] = None,
                  reward_wrong_last_command: Optional[float] = None):
@@ -29,6 +30,7 @@ class TextWorldPreproc(gym.Wrapper):
         :param encode_raw_text: flag to encode raw texts
         :param encode_extra_fields: fields to be encoded
         :param use_admissible_commands: use list of commands
+        :param keep_admissible_commands: keep list of admissible commands in observations
         :param use_intermediate_reward: intermediate reward
         :param tokens_limit: limit tokens in encoded fields
         :param reward_wrong_last_command: if given, this reward will be given if 'last_command' observation field is 'None'.
@@ -41,6 +43,7 @@ class TextWorldPreproc(gym.Wrapper):
         self._encode_raw_text = encode_raw_text
         self._encode_extra_field = tuple(encode_extra_fields)
         self._use_admissible_commands = use_admissible_commands
+        self._keep_admissible_commands = keep_admissible_commands
         self._use_intermedate_reward = use_intermediate_reward
         self._num_fields = len(self._encode_extra_field) + \
                            int(self._encode_raw_text)
@@ -76,6 +79,8 @@ class TextWorldPreproc(gym.Wrapper):
             result['admissible_commands'] = adm_result
             self._last_admissible_commands = \
                 extra_info['admissible_commands']
+        if self._keep_admissible_commands:
+            result['admissible_commands'] = extra_info['admissible_commands']
         self._last_extra_info = extra_info
         return result
 

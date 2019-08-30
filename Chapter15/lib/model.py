@@ -140,12 +140,10 @@ def calc_loss_dqn(batch, preprocessor, tgt_preprocessor, net,
 
 class CommandModel(nn.Module):
     def __init__(self, obs_size: int, dict_size: int, embeddings: nn.Embedding,
-                 max_tokens: int, max_commands: int,
-                 start_token: int, sep_token: int):
+                 max_tokens: int, start_token: int, sep_token: int):
         super(CommandModel, self).__init__()
 
         self.emb = embeddings
-        self.max_commands = max_commands
         self.max_tokens = max_tokens
         self.start_token = start_token
         self.sep_token = sep_token
@@ -156,7 +154,12 @@ class CommandModel(nn.Module):
         self.out = nn.Linear(in_features=obs_size,
                              out_features=dict_size)
 
-    def forward(self, obs_batch):
+    def forward(self, input_seq, obs_t):
+        hid_t = obs_t.unsqueeze(0)
+        output, _ = self.rnn(input_seq, (hid_t, hid_t))
+        return self.out(output)
+
+    def commands(self, obs_batch, count=1):
         """
         Generate commands from batch of encoded observations
         :param obs_batch: tensor of (batch, obs_size)
@@ -177,7 +180,8 @@ class CommandModel(nn.Module):
         inp_t = self.emb(inp_t)
         # adding time dimension (dim=1, as batch_first=True)
         inp_t = inp_t.unsqueeze(1)
-        p_hid_t = obs_batch.unsqueeze(1)
+        # hidden state is inserted on first dim
+        p_hid_t = obs_batch.unsqueeze(0)
         hid = (p_hid_t, p_hid_t)
 
         while True:
@@ -193,14 +197,15 @@ class CommandModel(nn.Module):
                 token = token.item()
                 cur_commands[idx].append(token)
                 cur_logits[idx].append(out_t[idx])
-                if token == self.sep_token or len(cur_commands[idx]) == self.max_tokens:
-                    l = len(commands[idx])
-                    if l < self.max_commands:
-                        commands[idx].append(cur_commands[idx])
-                        logits[idx].append(cur_logits[idx])
-                    cur_commands[idx] = []
-                    cur_logits[idx] = []
-            if min(map(len, commands)) == self.max_commands:
+                if token == self.sep_token or len(cur_commands[idx]) >= self.max_tokens:
+                    if cur_commands[idx]:
+                        l = len(commands[idx])
+                        if l < count:
+                            commands[idx].append(cur_commands[idx])
+                            logits[idx].append(cur_logits[idx])
+                        cur_commands[idx] = []
+                        cur_logits[idx] = []
+            if min(map(len, commands)) == count:
                 break
             # convert tokens into input tensor
             inp_t = self.emb(tokens)
@@ -238,9 +243,28 @@ class CmdAgent(ptan.agent.BaseAgent):
         actions = []
         for state in states:
             obs_t = self.prepr.encode_sequences([state['obs']]).to(self.device)
-            commands, _ = self.cmd(obs_t)
+            commands, _ = self.cmd.commands(obs_t)
             cmd = commands[0][0]
             tokens = [self.env.action_space.id2w[t] for t in cmd]
             action = " ".join(tokens)
             actions.append(action)
         return actions, agent_states
+
+
+def pretrain_policy_loss(cmd: CommandModel, commands: List, observations_t: torch.Tensor):
+    commands_batch = []
+    target_batch = []
+
+    for cmds in commands:
+        c = random.choice(cmds).tolist()
+        core = c + [cmd.sep_token] * (cmd.max_tokens - len(c))
+        commands_batch.append(core[:-1])
+        target_batch.append(core[1:])
+
+    commands_t = torch.tensor(commands_batch, dtype=torch.long).to(observations_t.device)
+    target_t = torch.tensor(target_batch, dtype=torch.long).to(observations_t.device)
+    input_t = cmd.emb(commands_t)
+    logits_t = cmd(input_t, observations_t)
+    logits_t = logits_t.view(-1, logits_t.size()[-1])
+    target_t = target_t.view(-1)
+    return F.cross_entropy(logits_t, target_t)
