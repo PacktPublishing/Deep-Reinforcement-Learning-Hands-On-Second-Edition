@@ -1,9 +1,13 @@
+#!/usr/bin/env python3
 import gym
 import ptan
 import random
+import pathlib
+import argparse
 import itertools
 import numpy as np
 from typing import List
+import warnings
 from textworld.gym import register_games
 from textworld.envs.wrappers.filter import EnvInfos
 
@@ -12,6 +16,8 @@ from lib import preproc, model, common
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+from ignite.engine import Engine
+
 
 GAMMA = 0.9
 BATCH_SIZE = 16
@@ -51,13 +57,49 @@ def unpack_batch(batch: List[ptan.experience.ExperienceFirstLast], prep: preproc
     return obs_t, ref_vals_t
 
 
-def run(device = "cpu"):
-    env_id = register_games(["games/simple1.ulx"], request_infos=EnvInfos(**EXTRA_GAME_INFO))
+def batch_generator(exp_source: ptan.experience.ExperienceSourceFirstLast,
+                    batch_size: int):
+    batch = []
+    for exp in exp_source:
+        batch.append(exp)
+        if len(batch) == batch_size:
+            yield batch
+            batch.clear()
+
+
+if __name__ == "__main__":
+    warnings.simplefilter("ignore", category=UserWarning)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-g", "--game", default="simple",
+                        help="Game prefix to be used during training, default=simple")
+    parser.add_argument("--params", choices=list(common.PARAMS.keys()),
+                        help="Training params, could be one of %s" % (list(common.PARAMS.keys())))
+    parser.add_argument("-s", "--suffices", type=int, default=1,
+                        help="Count of game indices to use during training, default=1")
+    parser.add_argument("-v", "--validation", default='-val',
+                        help="Suffix for game used for validation, default=-val")
+    parser.add_argument("--cuda", default=False, action='store_true',
+                        help="Use cuda for training")
+    parser.add_argument("-r", "--run", required=True, help="Run name")
+    args = parser.parse_args()
+    device = torch.device("cuda" if args.cuda else "cpu")
+    params = common.PARAMS[args.params]
+
+    game_files = ["games/%s%s.ulx" % (args.game, s) for s in range(1, args.suffices+1)]
+    if not all(map(lambda p: pathlib.Path(p).exists(), game_files)):
+        raise RuntimeError(f"Some game files from {game_files} not found! Probably you need to run make_games.sh")
+    env_id = register_games(game_files, request_infos=EnvInfos(**EXTRA_GAME_INFO), name=args.game)
+    print("Registered env %s for game files %s" % (env_id, game_files))
+    val_game_file = "games/%s%s.ulx" % (args.game, args.validation)
+    val_env_id = register_games([val_game_file], request_infos=EnvInfos(**EXTRA_GAME_INFO), name=args.game)
+    print("Game %s, with file %s will be used for validation" % (val_env_id, val_game_file))
+
     env = gym.make(env_id)
     env = preproc.TextWorldPreproc(env, use_admissible_commands=False,
                                    keep_admissible_commands=True,
                                    reward_wrong_last_command=-1)
-    params = common.PARAMS['small']
+    val_env = gym.make(val_env_id)
+    val_env = preproc.TextWorldPreproc(val_env)
 
     prep = preproc.Preprocessor(
         dict_size=env.observation_space.vocab_size,
@@ -73,30 +115,29 @@ def run(device = "cpu"):
     exp_source = ptan.experience.ExperienceSourceFirstLast(
         env, agent, gamma=GAMMA, steps_count=1)
 
-    optimizer = optim.Adam(itertools.chain(prep.parameters(),
+    optimizer = optim.RMSprop(itertools.chain(prep.parameters(),
                                            cmd.parameters(),
                                            net.parameters()),
-                           lr=LEARNING_RATE, eps=1e-3)
+                           lr=LEARNING_RATE, eps=1e-5)
     lm_pretrain_prob = 1.0
 
-    batch = []
-    for exp in exp_source:
-        batch.append(exp)
-        if len(batch) < BATCH_SIZE:
-            continue
-
+    def process_batch(engine, batch):
         optimizer.zero_grad()
         obs_t, vals_ref_t = unpack_batch(batch, prep, net)
         vals_t = net(obs_t).squeeze(-1)
         value_loss_t = F.mse_loss(vals_t, vals_ref_t)
 
+        res_dict = {"loss_value": value_loss_t.item()}
+
         # lm pretraining: done in random instead of A2C policy loss
         if random.random() < lm_pretrain_prob:
             commands = [
-                [ env.action_space.tokenize(cmd) for cmd in s.state['admissible_commands'] ]
+                [ env.action_space.tokenize(c) for c in s.state['admissible_commands'] ]
                 for s in batch
             ]
-            policy_loss_t = model.pretrain_policy_loss(cmd, commands, obs_t)
+            pretrain_loss_t = model.pretrain_policy_loss(cmd, commands, obs_t)
+            res_dict['loss_pretrain'] = pretrain_loss_t.item()
+            loss_t = value_loss_t + pretrain_loss_t
         else:
             adv_t = (vals_ref_t - vals_t).detach()
             _, logits_batch = cmd.commands(obs_t)
@@ -109,18 +150,31 @@ def run(device = "cpu"):
                     policy_loss_t = loss_p_t
                 else:
                     policy_loss_t += loss_p_t
-
-        loss_t = value_loss_t + policy_loss_t
+            res_dict['loss_policy'] = policy_loss_t.item()
+            loss_t = value_loss_t + policy_loss_t
+        res_dict['loss'] = loss_t.item()
         loss_t.backward()
         optimizer.step()
+        return res_dict
 
-    s = env.reset()
-    obs_t = prep.encode_sequences([s['obs']])
-    print(obs_t)
-    tokens, logits = cmd(obs_t)
+    engine = Engine(process_batch)
+    run_name = f"lm-{args.params}_{args.run}"
+    save_path = pathlib.Path("saves") / run_name
+    save_path.mkdir(parents=True, exist_ok=True)
 
-    return env, prep, cmd
+    common.setup_ignite(engine, exp_source, run_name,
+                        extra_metrics=('val_reward', 'val_steps'))
+
+    @engine.on(ptan.ignite.EpisodeEvents.BEST_REWARD_REACHED)
+    def best_reward_updated(trainer: Engine):
+        reward = trainer.state.metrics['avg_reward']
+        if reward > 0:
+            save_prep_name = save_path / ("best_train_%.3f_p.dat" % reward)
+            save_net_name = save_path / ("best_train_%.3f_n.dat" % reward)
+            torch.save(prep.state_dict(), save_prep_name)
+            torch.save(net.state_dict(), save_net_name)
+            print("%d: best avg training reward: %.3f, saved" % (
+                trainer.state.iteration, reward))
 
 
-if __name__ == "__main__":
-    run()
+    engine.run(batch_generator(exp_source, BATCH_SIZE))

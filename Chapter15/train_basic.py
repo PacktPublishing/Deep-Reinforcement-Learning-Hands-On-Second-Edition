@@ -100,7 +100,7 @@ if __name__ == "__main__":
         }
 
     engine = Engine(process_batch)
-    run_name = f"{args.params}_{args.run}"
+    run_name = f"basic-{args.params}_{args.run}"
     save_path = pathlib.Path("saves") / run_name
     save_path.mkdir(parents=True, exist_ok=True)
 
