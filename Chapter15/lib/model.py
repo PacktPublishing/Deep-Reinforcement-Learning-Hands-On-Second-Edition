@@ -201,8 +201,8 @@ class CommandModel(nn.Module):
                     if cur_commands[idx]:
                         l = len(commands[idx])
                         if l < count:
-                            commands[idx].append(cur_commands[idx])
-                            logits[idx].append(cur_logits[idx])
+                            commands[idx].append(cur_commands[idx][:-1])
+                            logits[idx].append(cur_logits[idx][:-1])
                         cur_commands[idx] = []
                         cur_logits[idx] = []
             if min(map(len, commands)) == count:
@@ -256,7 +256,7 @@ def pretrain_policy_loss(cmd: CommandModel, commands: List, observations_t: torc
     target_batch = []
 
     for cmds in commands:
-        c = random.choice(cmds).tolist()
+        c = random.choice(cmds).tolist()[:cmd.max_tokens-1]
         core = c + [cmd.sep_token] * (cmd.max_tokens - len(c))
         commands_batch.append(core[:-1])
         target_batch.append(core[1:])

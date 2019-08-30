@@ -21,7 +21,9 @@ from ignite.engine import Engine
 
 GAMMA = 0.9
 BATCH_SIZE = 16
-LEARNING_RATE = 5e-5
+LEARNING_RATE = 1e-4
+LM_PRETRAIN_STEPS = 10000
+LM_PRETRAIN_FINAL = 0.4
 
 
 EXTRA_GAME_INFO = {
@@ -104,24 +106,26 @@ if __name__ == "__main__":
     prep = preproc.Preprocessor(
         dict_size=env.observation_space.vocab_size,
         emb_size=params.embeddings, num_sequences=env.num_fields,
-        enc_output_size=params.encoder_size)
+        enc_output_size=params.encoder_size).to(device)
 
     cmd = model.CommandModel(prep.obs_enc_size, env.observation_space.vocab_size, prep.emb,
                              max_tokens=env.action_space.max_length,
                              start_token=env.action_space.BOS_id,
-                             sep_token=env.action_space.EOS_id)
+                             sep_token=env.action_space.EOS_id).to(device)
     net = model.A2CModel(obs_size=env.num_fields * params.encoder_size)
+    net = net.to(device)
     agent = model.CmdAgent(env, cmd, prep, device=device)
     exp_source = ptan.experience.ExperienceSourceFirstLast(
         env, agent, gamma=GAMMA, steps_count=1)
 
     optimizer = optim.RMSprop(itertools.chain(prep.parameters(),
-                                           cmd.parameters(),
-                                           net.parameters()),
-                           lr=LEARNING_RATE, eps=1e-5)
+                                              cmd.parameters(),
+                                              net.parameters()),
+                              lr=LEARNING_RATE, eps=1e-5)
     lm_pretrain_prob = 1.0
 
     def process_batch(engine, batch):
+        global lm_pretrain_prob
         optimizer.zero_grad()
         obs_t, vals_ref_t = unpack_batch(batch, prep, net)
         vals_t = net(obs_t).squeeze(-1)
@@ -143,6 +147,8 @@ if __name__ == "__main__":
             _, logits_batch = cmd.commands(obs_t)
             policy_loss_t = None
             for logits, adv_val_t in zip(logits_batch, adv_t):
+                if not logits[0]:
+                    continue
                 logits_t = torch.stack(logits[0])
                 log_prob_t = adv_val_t * F.log_softmax(logits_t, dim=1)
                 loss_p_t = -log_prob_t.mean()
@@ -155,6 +161,10 @@ if __name__ == "__main__":
         res_dict['loss'] = loss_t.item()
         loss_t.backward()
         optimizer.step()
+
+        lm_p = 1 - engine.state.iteration / LM_PRETRAIN_STEPS
+        lm_pretrain_prob = max(lm_p, LM_PRETRAIN_FINAL)
+        res_dict['pretrain_prob'] = lm_pretrain_prob
         return res_dict
 
     engine = Engine(process_batch)
