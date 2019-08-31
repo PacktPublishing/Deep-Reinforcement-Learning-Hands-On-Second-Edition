@@ -22,8 +22,13 @@ from ignite.engine import Engine
 GAMMA = 0.9
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-4
+LM_PRETRAIN_START_ANNEAL = 10000
 LM_PRETRAIN_STEPS = 10000
 LM_PRETRAIN_FINAL = 0.4
+POLICY_BETA = 0.1
+
+# have to be less or equal to env.action_space.max_length
+LM_MAX_TOKENS = 2
 
 
 EXTRA_GAME_INFO = {
@@ -99,7 +104,7 @@ if __name__ == "__main__":
     env = gym.make(env_id)
     env = preproc.TextWorldPreproc(env, use_admissible_commands=False,
                                    keep_admissible_commands=True,
-                                   reward_wrong_last_command=-1)
+                                   reward_wrong_last_command=-0.1)
     val_env = gym.make(val_env_id)
     val_env = preproc.TextWorldPreproc(val_env)
 
@@ -109,7 +114,7 @@ if __name__ == "__main__":
         enc_output_size=params.encoder_size).to(device)
 
     cmd = model.CommandModel(prep.obs_enc_size, env.observation_space.vocab_size, prep.emb,
-                             max_tokens=env.action_space.max_length,
+                             max_tokens=LM_MAX_TOKENS,
                              start_token=env.action_space.BOS_id,
                              sep_token=env.action_space.EOS_id).to(device)
     net = model.A2CModel(obs_size=env.num_fields * params.encoder_size)
@@ -135,10 +140,16 @@ if __name__ == "__main__":
 
         # lm pretraining: done in random instead of A2C policy loss
         if random.random() < lm_pretrain_prob:
-            commands = [
-                [ env.action_space.tokenize(c) for c in s.state['admissible_commands'] ]
-                for s in batch
-            ]
+            commands = []
+
+            for s in batch:
+                cmds = []
+                for c in s.state['admissible_commands']:
+                    t = env.action_space.tokenize(c)
+                    if len(t)-2 <= LM_MAX_TOKENS:
+                        cmds.append(t)
+                commands.append(cmds)
+
             pretrain_loss_t = model.pretrain_policy_loss(cmd, commands, obs_t)
             res_dict['loss_pretrain'] = pretrain_loss_t.item()
             loss_t = value_loss_t + pretrain_loss_t
@@ -156,14 +167,20 @@ if __name__ == "__main__":
                     policy_loss_t = loss_p_t
                 else:
                     policy_loss_t += loss_p_t
+            policy_loss_t = policy_loss_t * POLICY_BETA
             res_dict['loss_policy'] = policy_loss_t.item()
             loss_t = value_loss_t + policy_loss_t
         res_dict['loss'] = loss_t.item()
         loss_t.backward()
         optimizer.step()
 
-        lm_p = 1 - engine.state.iteration / LM_PRETRAIN_STEPS
-        lm_pretrain_prob = max(lm_p, LM_PRETRAIN_FINAL)
+        if not hasattr(engine.state, "episode"):
+            episode = 0
+        else:
+            episode = engine.state.episode
+        if episode > LM_PRETRAIN_START_ANNEAL:
+            lm_p = 1 - (episode - LM_PRETRAIN_START_ANNEAL) / LM_PRETRAIN_STEPS
+            lm_pretrain_prob = max(lm_p, LM_PRETRAIN_FINAL)
         res_dict['pretrain_prob'] = lm_pretrain_prob
         return res_dict
 
