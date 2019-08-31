@@ -201,8 +201,8 @@ class CommandModel(nn.Module):
                     if cur_commands[idx]:
                         l = len(commands[idx])
                         if l < count:
-                            commands[idx].append(cur_commands[idx][:-1])
-                            logits[idx].append(cur_logits[idx][:-1])
+                            commands[idx].append(cur_commands[idx])
+                            logits[idx].append(cur_logits[idx])
                         cur_commands[idx] = []
                         cur_logits[idx] = []
             if min(map(len, commands)) == count:
@@ -245,7 +245,11 @@ class CmdAgent(ptan.agent.BaseAgent):
             obs_t = self.prepr.encode_sequences([state['obs']]).to(self.device)
             commands, _ = self.cmd.commands(obs_t)
             cmd = commands[0][0]
-            tokens = [self.env.action_space.id2w[t] for t in cmd]
+            tokens = [
+                self.env.action_space.id2w[t]
+                for t in cmd
+                if t not in {self.cmd.sep_token, self.cmd.start_token}
+            ]
             action = " ".join(tokens)
             actions.append(action)
         return actions, agent_states
