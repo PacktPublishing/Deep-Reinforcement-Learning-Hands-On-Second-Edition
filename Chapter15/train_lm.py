@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import gym
 import ptan
-import random
 import pathlib
 import argparse
 import itertools
@@ -22,13 +21,12 @@ from ignite.engine import Engine
 GAMMA = 0.9
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-4
-LM_PRETRAIN_START_ANNEAL = 10000
-LM_PRETRAIN_STEPS = 10000
-LM_PRETRAIN_FINAL = 0.4
 POLICY_BETA = 0.1
 
 # have to be less or equal to env.action_space.max_length
-LM_MAX_TOKENS = 2
+LM_MAX_TOKENS = 4
+LM_MAX_COMMANDS = 10
+LM_STOP_AVG_REWARD = -1.0
 
 
 EXTRA_GAME_INFO = {
@@ -36,11 +34,12 @@ EXTRA_GAME_INFO = {
     "description": True,
     "intermediate_reward": True,
     "admissible_commands": True,
+    "policy_commands": True,
     "last_command": True,
 }
 
 
-def unpack_batch(batch: List[ptan.experience.ExperienceFirstLast], prep: preproc.Preprocessor, net: model.A2CModel):
+def unpack_batch(batch: List[ptan.experience.ExperienceFirstLast], prep: preproc.Preprocessor):
     states = []
     rewards = []
     not_done_idx = []
@@ -52,16 +51,7 @@ def unpack_batch(batch: List[ptan.experience.ExperienceFirstLast], prep: preproc
         if exp.last_state is not None:
             not_done_idx.append(idx)
             next_states.append(exp.last_state['obs'])
-    obs_t = prep.encode_sequences(states)
-    rewards_np = np.array(rewards, dtype=np.float32)
-    if not_done_idx:
-        obs_next_t = prep.encode_sequences(next_states)
-        next_vals_t = net(obs_next_t)
-        next_vals_np = next_vals_t.data.cpu().numpy()[:, 0]
-        rewards_np[not_done_idx] += GAMMA * next_vals_np
-
-    ref_vals_t = torch.FloatTensor(rewards_np).to(obs_t.device)
-    return obs_t, ref_vals_t
+    return prep.encode_sequences(states)
 
 
 def batch_generator(exp_source: ptan.experience.ExperienceSourceFirstLast,
@@ -105,9 +95,6 @@ if __name__ == "__main__":
     env = preproc.TextWorldPreproc(env, use_admissible_commands=False,
                                    keep_admissible_commands=True,
                                    reward_wrong_last_command=-0.1)
-    val_env = gym.make(val_env_id)
-    val_env = preproc.TextWorldPreproc(val_env)
-
     prep = preproc.Preprocessor(
         dict_size=env.observation_space.vocab_size,
         emb_size=params.embeddings, num_sequences=env.num_fields,
@@ -115,31 +102,23 @@ if __name__ == "__main__":
 
     cmd = model.CommandModel(prep.obs_enc_size, env.observation_space.vocab_size, prep.emb,
                              max_tokens=LM_MAX_TOKENS,
+                             max_commands=LM_MAX_COMMANDS,
                              start_token=env.action_space.BOS_id,
                              sep_token=env.action_space.EOS_id).to(device)
-    net = model.A2CModel(obs_size=env.num_fields * params.encoder_size)
-    net = net.to(device)
-    agent = model.CmdAgent(env, cmd, prep, device=device)
-    exp_source = ptan.experience.ExperienceSourceFirstLast(
-        env, agent, gamma=GAMMA, steps_count=1)
+    if False:
+        agent = model.CmdAgent(env, cmd, prep, device=device)
+        exp_source = ptan.experience.ExperienceSourceFirstLast(
+            env, agent, gamma=GAMMA, steps_count=1)
+        buffer = ptan.experience.ExperienceReplayBuffer(
+            exp_source, params.replay_size)
 
-    optimizer = optim.RMSprop(itertools.chain(prep.parameters(),
-                                              cmd.parameters(),
-                                              net.parameters()),
-                              lr=LEARNING_RATE, eps=1e-5)
-    lm_pretrain_prob = 1.0
+        optimizer = optim.RMSprop(itertools.chain(prep.parameters(), cmd.parameters()),
+                                  lr=LEARNING_RATE, eps=1e-5)
 
-    def process_batch(engine, batch):
-        global lm_pretrain_prob
-        optimizer.zero_grad()
-        obs_t, vals_ref_t = unpack_batch(batch, prep, net)
-        vals_t = net(obs_t).squeeze(-1)
-        value_loss_t = F.mse_loss(vals_t, vals_ref_t)
+        def process_batch(engine, batch):
+            optimizer.zero_grad()
+            obs_t = unpack_batch(batch, prep)
 
-        res_dict = {"loss_value": value_loss_t.item()}
-
-        # lm pretraining: done in random instead of A2C policy loss
-        if random.random() < lm_pretrain_prob:
             commands = []
 
             for s in batch:
@@ -150,58 +129,110 @@ if __name__ == "__main__":
                         cmds.append(t)
                 commands.append(cmds)
 
-            pretrain_loss_t = model.pretrain_policy_loss(cmd, commands, obs_t)
-            res_dict['loss_pretrain'] = pretrain_loss_t.item()
-            loss_t = value_loss_t + pretrain_loss_t
-        else:
-            adv_t = (vals_ref_t - vals_t).detach()
-            _, logits_batch = cmd.commands(obs_t)
-            policy_loss_t = None
-            for logits, adv_val_t in zip(logits_batch, adv_t):
-                if not logits[0]:
-                    continue
-                logits_t = torch.stack(logits[0])
-                log_prob_t = adv_val_t * F.log_softmax(logits_t, dim=1)
-                loss_p_t = -log_prob_t.mean()
-                if policy_loss_t is None:
-                    policy_loss_t = loss_p_t
-                else:
-                    policy_loss_t += loss_p_t
-            policy_loss_t = policy_loss_t * POLICY_BETA
-            res_dict['loss_policy'] = policy_loss_t.item()
-            loss_t = value_loss_t + policy_loss_t
-        res_dict['loss'] = loss_t.item()
+            loss_t = model.pretrain_policy_loss(cmd, commands, obs_t)
+            loss_t.backward()
+            optimizer.step()
+
+            if engine.state.metrics.get('avg_reward', LM_STOP_AVG_REWARD) > LM_STOP_AVG_REWARD:
+                print("Mean reward reached %.2f, stop pretraining" % LM_STOP_AVG_REWARD)
+                engine.should_terminate = True
+            return {
+                "loss": loss_t.item(),
+            }
+
+        engine = Engine(process_batch)
+        run_name = f"lm-{args.params}_{args.run}"
+        common.setup_ignite(engine, exp_source, run_name)
+        engine.run(common.batch_generator(buffer, BATCH_SIZE, BATCH_SIZE))
+
+        torch.save(prep.state_dict(), "prep.dat")
+        torch.save(cmd.state_dict(), "cmd.dat")
+    prep.load_state_dict(torch.load("prep.dat"))
+    cmd.load_state_dict(torch.load("cmd.dat"))
+
+    # DQN training using Preprocessor and Command generator as part of the environment
+    val_env = gym.make(val_env_id)
+    val_env = preproc.TextWorldPreproc(val_env)
+
+    net = model.DQNModel(obs_size=prep.obs_enc_size,
+                         cmd_size=prep.obs_enc_size).to(device)
+    tgt_net = ptan.agent.TargetNet(net)
+    agent = model.CmdDQNAgent(env, net, cmd, prep, epsilon=1, device=device)
+    exp_source = ptan.experience.ExperienceSourceFirstLast(
+        env, agent, gamma=GAMMA, steps_count=1)
+    buffer = ptan.experience.ExperienceReplayBuffer(
+        exp_source, params.replay_size)
+    #
+    # buffer.experience_source_iter = iter(exp_source)
+
+    optimizer = optim.RMSprop(net.parameters(), lr=LEARNING_RATE, eps=1e-5)
+
+    def process_batch(engine, batch):
+        optimizer.zero_grad()
+        loss_t = model.calc_loss_dqncmd(
+            batch, prep, cmd, net, tgt_net.target_model, GAMMA,
+            env, device)
         loss_t.backward()
         optimizer.step()
-
-        if not hasattr(engine.state, "episode"):
-            episode = 0
-        else:
-            episode = engine.state.episode
-        if episode > LM_PRETRAIN_START_ANNEAL:
-            lm_p = 1 - (episode - LM_PRETRAIN_START_ANNEAL) / LM_PRETRAIN_STEPS
-            lm_pretrain_prob = max(lm_p, LM_PRETRAIN_FINAL)
-        res_dict['pretrain_prob'] = lm_pretrain_prob
-        return res_dict
+        eps = 1 - engine.state.iteration / params.epsilon_steps
+        agent.epsilon = max(params.epsilon_final, eps)
+        if engine.state.iteration % params.sync_nets == 0:
+            tgt_net.sync()
+        return {
+            "loss": loss_t.item(),
+            "epsilon": agent.epsilon,
+        }
 
     engine = Engine(process_batch)
-    run_name = f"lm-{args.params}_{args.run}"
+    run_name = f"dqn-{args.params}_{args.run}"
     save_path = pathlib.Path("saves") / run_name
     save_path.mkdir(parents=True, exist_ok=True)
 
     common.setup_ignite(engine, exp_source, run_name,
                         extra_metrics=('val_reward', 'val_steps'))
 
-    @engine.on(ptan.ignite.EpisodeEvents.BEST_REWARD_REACHED)
-    def best_reward_updated(trainer: Engine):
-        reward = trainer.state.metrics['avg_reward']
-        if reward > 0:
-            save_prep_name = save_path / ("best_train_%.3f_p.dat" % reward)
-            save_net_name = save_path / ("best_train_%.3f_n.dat" % reward)
-            torch.save(prep.state_dict(), save_prep_name)
-            torch.save(net.state_dict(), save_net_name)
-            print("%d: best avg training reward: %.3f, saved" % (
-                trainer.state.iteration, reward))
+    # @engine.on(ptan.ignite.PeriodEvents.ITERS_100_COMPLETED)
+    # def validate(engine):
+    #     reward = 0.0
+    #     steps = 0
+    #
+    #     obs = val_env.reset()
+    #
+    #     while True:
+    #         obs_t = prep.encode_sequences([obs['obs']]).to(device)
+    #         cmd_t = prep.encode_commands(obs['admissible_commands']).to(device)
+    #         q_vals = net.q_values(obs_t, cmd_t)
+    #         act = np.argmax(q_vals)
+    #
+    #         obs, r, is_done, _ = val_env.step(act)
+    #         steps += 1
+    #         reward += r
+    #         if is_done:
+    #             break
+    #     engine.state.metrics['val_reward'] = reward
+    #     engine.state.metrics['val_steps'] = steps
+    #     print("Validation got %.3f reward in %d steps" % (reward, steps))
+    #     best_val_reward = getattr(engine.state, "best_val_reward", None)
+    #     if best_val_reward is None:
+    #         engine.state.best_val_reward = reward
+    #     elif best_val_reward < reward:
+    #         print("Best validation reward updated: %s -> %s" % (best_val_reward, reward))
+    #         save_prep_name = save_path / ("best_val_%.3f_p.dat" % reward)
+    #         save_net_name = save_path / ("best_val_%.3f_n.dat" % reward)
+    #         torch.save(prep.state_dict(), save_prep_name)
+    #         torch.save(net.state_dict(), save_net_name)
+    #         engine.state.best_val_reward = reward
 
+    # @engine.on(ptan.ignite.EpisodeEvents.BEST_REWARD_REACHED)
+    # def best_reward_updated(trainer: Engine):
+    #     reward = trainer.state.metrics['avg_reward']
+    #     if reward > 0:
+    #         save_prep_name = save_path / ("best_train_%.3f_p.dat" % reward)
+    #         save_net_name = save_path / ("best_train_%.3f_n.dat" % reward)
+    #         torch.save(prep.state_dict(), save_prep_name)
+    #         torch.save(net.state_dict(), save_net_name)
+    #         print("%d: best avg training reward: %.3f, saved" % (
+    #             trainer.state.iteration, reward))
 
-    engine.run(batch_generator(exp_source, BATCH_SIZE))
+    engine.run(common.batch_generator(buffer, params.replay_initial, BATCH_SIZE))
+

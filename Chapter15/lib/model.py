@@ -1,3 +1,4 @@
+import gym
 import ptan
 import random
 import numpy as np
@@ -5,6 +6,7 @@ from typing import List
 
 import torch
 import torch.nn as nn
+import torch.nn.utils.rnn as rnn_utils
 import torch.nn.functional as F
 import torch.distributions as t_distr
 
@@ -23,7 +25,7 @@ class DQNModel(nn.Module):
         )
 
     def forward(self, obs, cmd):
-        x = torch.cat((obs, cmd), dim=1)
+        x = torch.cat(torch.broadcast_tensors(obs, cmd), dim=1)
         return self.net(x)
 
     def q_values(self, obs_t, commands_t):
@@ -33,11 +35,8 @@ class DQNModel(nn.Module):
         :param commands_t: commands to be evaluated, shape is [N, cmd_size]
         :return: list of q-values for commands
         """
-        result = []
-        for cmd_t in commands_t:
-            qval = self(obs_t, cmd_t.unsqueeze(0))[0].cpu().item()
-            result.append(qval)
-        return result
+        q_vals = self(obs_t.unsqueeze(0), commands_t)
+        return q_vals.cpu().numpy()[:, 0].tolist()
 
 
 class DQNAgent(ptan.agent.BaseAgent):
@@ -80,7 +79,7 @@ class DQNAgent(ptan.agent.BaseAgent):
 
 
 @torch.no_grad()
-def unpack_batch(batch: List[ptan.experience.Experience],
+def unpack_batch(batch: List[ptan.experience.ExperienceFirstLast],
                  preprocessor: preproc.Preprocessor,
                  net: DQNModel, device="cpu"):
     """
@@ -140,11 +139,12 @@ def calc_loss_dqn(batch, preprocessor, tgt_preprocessor, net,
 
 class CommandModel(nn.Module):
     def __init__(self, obs_size: int, dict_size: int, embeddings: nn.Embedding,
-                 max_tokens: int, start_token: int, sep_token: int):
+                 max_tokens: int, max_commands: int, start_token: int, sep_token: int):
         super(CommandModel, self).__init__()
 
         self.emb = embeddings
         self.max_tokens = max_tokens
+        self.max_commands = max_commands
         self.start_token = start_token
         self.sep_token = sep_token
 
@@ -159,20 +159,19 @@ class CommandModel(nn.Module):
         output, _ = self.rnn(input_seq, (hid_t, hid_t))
         return self.out(output)
 
-    def commands(self, obs_batch, count=1):
+    def commands(self, obs_batch):
         """
         Generate commands from batch of encoded observations
         :param obs_batch: tensor of (batch, obs_size)
-        :return: list of tuples ([token_ids], [logits])
+        :return: tuple of (batch of commands lists, batch of embeddings for each generated commands)
         """
         batch_size = obs_batch.size(0)
         # list of finalized commands and logits for every observation in batch
         commands = [[] for _ in range(batch_size)]
-        logits = [[] for _ in range(batch_size)]
+        embs = [[] for _ in range(batch_size)]
 
         # currently being constructed list
         cur_commands = [[] for _ in range(batch_size)]
-        cur_logits = [[] for _ in range(batch_size)]
 
         # preprare input tensor with start token embeddings
         inp_t = torch.full((batch_size, ), self.start_token, dtype=torch.long)
@@ -196,21 +195,32 @@ class CommandModel(nn.Module):
             for idx, token in enumerate(tokens):
                 token = token.item()
                 cur_commands[idx].append(token)
-                cur_logits[idx].append(out_t[idx])
                 if token == self.sep_token or len(cur_commands[idx]) >= self.max_tokens:
                     if cur_commands[idx]:
                         l = len(commands[idx])
-                        if l < count:
+                        if l < self.max_commands:
                             commands[idx].append(cur_commands[idx])
-                            logits[idx].append(cur_logits[idx])
+                            embs[idx].append(hid[0][0][idx])
                         cur_commands[idx] = []
-                        cur_logits[idx] = []
-            if min(map(len, commands)) == count:
+                    if token != self.sep_token:
+                        tokens[idx] = self.sep_token
+            if min(map(len, commands)) == self.max_commands:
                 break
             # convert tokens into input tensor
             inp_t = self.emb(tokens)
             inp_t = inp_t.unsqueeze(1)
-        return commands, logits
+        return commands, embs
+
+    def commands_embs(self, batch_obs_t, batch_commands):
+        batch_cmd = [
+            self.emb(torch.tensor(cmd, dtype=torch.long).to(batch_obs_t.device))
+            for cmd in batch_commands
+        ]
+        seq = rnn_utils.pack_sequence(batch_cmd, enforce_sorted=False)
+        batch_obs_t = batch_obs_t.unsqueeze(0)
+        hid = (batch_obs_t, batch_obs_t)
+        out, hid = self.rnn(seq, hid)
+        return hid[0].squeeze(0)
 
 
 class A2CModel(nn.Module):
@@ -244,7 +254,7 @@ class CmdAgent(ptan.agent.BaseAgent):
         for state in states:
             obs_t = self.prepr.encode_sequences([state['obs']]).to(self.device)
             commands, _ = self.cmd.commands(obs_t)
-            cmd = commands[0][0]
+            cmd = random.choice(commands[0])
             tokens = [
                 self.env.action_space.id2w[t]
                 for t in cmd
@@ -258,12 +268,19 @@ class CmdAgent(ptan.agent.BaseAgent):
 def pretrain_policy_loss(cmd: CommandModel, commands: List, observations_t: torch.Tensor):
     commands_batch = []
     target_batch = []
+    min_length = None
 
     for cmds in commands:
-        c = random.choice(cmds).tolist()[:cmd.max_tokens+1]
-        core = c + [cmd.sep_token] * (cmd.max_tokens + 2 - len(c))
-        commands_batch.append(core[:-1])
-        target_batch.append(core[1:])
+        inp = [cmd.start_token]
+        for c in cmds:
+            inp.extend(c[1:])
+        commands_batch.append(inp[:-1])
+        target_batch.append(inp[1:])
+        if min_length is None or len(inp) < min_length:
+            min_length = len(inp)
+
+    commands_batch = [c[:min_length-1] for c in commands_batch]
+    target_batch = [c[:min_length-1] for c in target_batch]
 
     commands_t = torch.tensor(commands_batch, dtype=torch.long).to(observations_t.device)
     target_t = torch.tensor(target_batch, dtype=torch.long).to(observations_t.device)
@@ -272,3 +289,81 @@ def pretrain_policy_loss(cmd: CommandModel, commands: List, observations_t: torc
     logits_t = logits_t.view(-1, logits_t.size()[-1])
     target_t = target_t.view(-1)
     return F.cross_entropy(logits_t, target_t)
+
+
+class CmdDQNAgent(ptan.agent.BaseAgent):
+    def __init__(self, env, net: DQNModel, cmd: CommandModel,
+                 preprocessor: preproc.Preprocessor,
+                 epsilon: float,
+                 device = "cpu"):
+        self.env = env
+        self.net = net
+        self.cmd = cmd
+        self.prepr = preprocessor
+        self.epsilon = epsilon
+        self.device = device
+
+    @torch.no_grad()
+    def __call__(self, states, agent_states=None):
+        if agent_states is None:
+            agent_states = [None] * len(states)
+
+        actions = []
+        for state in states:
+            obs_t = self.prepr.encode_sequences([state['obs']]).to(self.device)
+            commands, cmd_enc_t = self.cmd.commands(obs_t)
+            if random.random() <= self.epsilon:
+                act_index = random.randrange(len(commands))
+            else:
+                q_vals = self.net.q_values(obs_t, cmd_enc_t)
+                act_index = np.argmax(q_vals)
+
+            cmd = commands[0][act_index]
+            tokens = [
+                self.env.action_space.id2w[t]
+                for t in cmd
+                if t not in {self.cmd.sep_token, self.cmd.start_token}
+            ]
+            action = " ".join(tokens)
+            actions.append(action)
+        return actions, agent_states
+
+
+@torch.no_grad()
+def unpack_batch_dqncmd(batch: List[ptan.experience.ExperienceFirstLast],
+                        prep: preproc.Preprocessor,
+                        cmd: CommandModel, net: DQNModel,
+                        env: gym.Env):
+    observations, taken_actions, rewards = [], [], []
+    not_done_indices, next_observations = [], []
+
+    for idx, exp in enumerate(batch):
+        observations.append(exp.state['obs'])
+        taken_actions.append(env.action_space.tokenize(exp.action))
+        rewards.append(exp.reward)
+        if exp.last_state is not None:
+            not_done_indices.append(idx)
+            next_observations.append(exp.last_state['obs'])
+
+    observations_t = prep.encode_sequences(observations)
+    next_q_vals = [0.0] * len(batch)
+    if next_observations:
+        next_observations_t = prep.encode_sequences(next_observations)
+        next_commands, next_cmds_embs = cmd.commands(next_observations_t)
+
+        for idx, next_obs_t, next_cmds_emb in zip(not_done_indices, next_observations_t, next_cmds_embs):
+            next_embs_t = torch.stack(next_cmds_emb)
+            q_vals = net.q_values(next_obs_t, next_embs_t)
+            next_q_vals[idx] = max(q_vals)
+
+    cmd_embs_t = cmd.commands_embs(observations_t, taken_actions)
+    return observations_t, cmd_embs_t, rewards, next_q_vals
+
+
+def calc_loss_dqncmd(batch, preprocessor, cmd, net,
+                     tgt_net, gamma, env, device="cpu"):
+    obs_t, cmds_t, rewards, next_best_qs = unpack_batch_dqncmd(batch, preprocessor, cmd, tgt_net, env)
+    q_values_t = net(obs_t, cmds_t)
+    tgt_q_t = torch.tensor(rewards) + gamma * torch.tensor(next_best_qs)
+    tgt_q_t = tgt_q_t.to(device)
+    return F.mse_loss(q_values_t.squeeze(-1), tgt_q_t)

@@ -81,6 +81,8 @@ class TextWorldPreproc(gym.Wrapper):
                 extra_info['admissible_commands']
         if self._keep_admissible_commands:
             result['admissible_commands'] = extra_info['admissible_commands']
+            if 'policy_commands' in extra_info:
+                result['policy_commands'] = extra_info['policy_commands']
         self._last_extra_info = extra_info
         return result
 
