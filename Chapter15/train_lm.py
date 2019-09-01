@@ -234,5 +234,5 @@ if __name__ == "__main__":
     #         print("%d: best avg training reward: %.3f, saved" % (
     #             trainer.state.iteration, reward))
 
-    engine.run(common.batch_generator(buffer, params.replay_initial, BATCH_SIZE))
+    engine.run(common.batch_generator(buffer, 128, BATCH_SIZE))
 

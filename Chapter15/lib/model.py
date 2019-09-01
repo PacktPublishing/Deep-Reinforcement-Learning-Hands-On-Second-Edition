@@ -311,11 +311,12 @@ class CmdDQNAgent(ptan.agent.BaseAgent):
         actions = []
         for state in states:
             obs_t = self.prepr.encode_sequences([state['obs']]).to(self.device)
-            commands, cmd_enc_t = self.cmd.commands(obs_t)
+            commands, cmd_enc = self.cmd.commands(obs_t)
             if random.random() <= self.epsilon:
                 act_index = random.randrange(len(commands))
             else:
-                q_vals = self.net.q_values(obs_t, cmd_enc_t)
+                cmd_enc_t = torch.stack(cmd_enc[0])
+                q_vals = self.net.q_values(obs_t[0], cmd_enc_t)
                 act_index = np.argmax(q_vals)
 
             cmd = commands[0][act_index]
