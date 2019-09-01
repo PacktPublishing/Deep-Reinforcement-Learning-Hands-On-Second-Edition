@@ -25,7 +25,7 @@ POLICY_BETA = 0.1
 # have to be less or equal to env.action_space.max_length
 LM_MAX_TOKENS = 4
 LM_MAX_COMMANDS = 10
-LM_STOP_AVG_REWARD = -1.0
+LM_STOP_AVG_REWARD = 0.0
 
 
 EXTRA_GAME_INFO = {
@@ -111,7 +111,7 @@ if __name__ == "__main__":
         load_path = pathlib.Path(args.load_cmd)
         prep.load_state_dict(torch.load(load_path/"prep.dat"))
         cmd.load_state_dict(torch.load(load_path/"cmd.dat"))
-        print("Preprocessor and command generator are loaded from %s % load_path")
+        print("Preprocessor and command generator are loaded from %s" % load_path)
     else:
         agent = model.CmdAgent(env, cmd, prep, device=device)
         exp_source = ptan.experience.ExperienceSourceFirstLast(
@@ -149,15 +149,25 @@ if __name__ == "__main__":
 
         engine = Engine(process_batch)
         run_name = f"lm-{args.params}_{args.run}"
+        save_path = pathlib.Path("saves") / run_name
+        save_path.mkdir(parents=True, exist_ok=True)
         common.setup_ignite(engine, exp_source, run_name)
-        engine.run(common.batch_generator(buffer, BATCH_SIZE, BATCH_SIZE))
+
+        try:
+            engine.run(common.batch_generator(buffer, BATCH_SIZE, BATCH_SIZE))
+        except KeyboardInterrupt:
+            print("Interrupt got, saving the model...")
+            torch.save(prep.state_dict(), save_path/"prep.dat")
+            torch.save(cmd.state_dict(), save_path/"cmd.dat")
 
     print("Using preprocessor and command generator")
     prep.train(False)
     cmd.train(False)
 
     val_env = gym.make(val_env_id)
-    val_env = preproc.TextWorldPreproc(val_env)
+    val_env = preproc.TextWorldPreproc(val_env, use_admissible_commands=False,
+                                       keep_admissible_commands=True,
+                                       reward_wrong_last_command=-0.1)
 
     net = model.DQNModel(obs_size=prep.obs_enc_size,
                          cmd_size=prep.obs_enc_size).to(device)
@@ -203,13 +213,14 @@ if __name__ == "__main__":
 
         while True:
             obs_t = prep.encode_sequences([obs['obs']]).to(device)
-            cmds, cmds_embs_t = cmd.commands(obs_t)
-            q_vals = net.q_values(obs_t[0], cmds_embs_t[0])
+            cmds, cmds_embs = cmd.commands(obs_t)
+            cmd_embs_t = torch.stack(cmds_embs[0])
+            q_vals = net.q_values(obs_t[0], cmd_embs_t)
             act = np.argmax(q_vals)
-            cmd = cmds[0][act]
+            best_cmd = cmds[0][act]
             tokens = [
                 env.action_space.id2w[t]
-                for t in cmd
+                for t in best_cmd
                 if t not in {cmd.sep_token, cmd.start_token}
             ]
             action = " ".join(tokens)
@@ -239,5 +250,5 @@ if __name__ == "__main__":
             print("%d: best avg training reward: %.3f, saved" % (
                 trainer.state.iteration, reward))
 
-    engine.run(common.batch_generator(buffer, params.replay_initial, BATCH_SIZE))
+    engine.run(common.batch_generator(buffer, 100 + 0*params.replay_initial, BATCH_SIZE))
 

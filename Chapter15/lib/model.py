@@ -28,6 +28,7 @@ class DQNModel(nn.Module):
         x = torch.cat(torch.broadcast_tensors(obs, cmd), dim=1)
         return self.net(x)
 
+    @torch.no_grad()
     def q_values(self, obs_t, commands_t):
         """
         Calculate q-values for observation and tensor of commands
