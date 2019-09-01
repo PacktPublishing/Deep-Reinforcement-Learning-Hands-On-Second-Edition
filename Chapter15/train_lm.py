@@ -19,6 +19,7 @@ from ignite.engine import Engine
 
 GAMMA = 0.9
 BATCH_SIZE = 16
+LEARNING_RATE_LM = 1e-5
 LEARNING_RATE = 1e-5
 POLICY_BETA = 0.1
 
@@ -120,7 +121,7 @@ if __name__ == "__main__":
             exp_source, params.replay_size)
 
         optimizer = optim.RMSprop(itertools.chain(prep.parameters(), cmd.parameters()),
-                                  lr=LEARNING_RATE, eps=1e-5)
+                                  lr=LEARNING_RATE_LM, eps=1e-5)
 
         def process_batch(engine, batch):
             optimizer.zero_grad()
