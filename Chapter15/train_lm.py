@@ -13,14 +13,13 @@ from textworld.envs.wrappers.filter import EnvInfos
 from lib import preproc, model, common
 
 import torch
-import torch.nn.functional as F
 import torch.optim as optim
 from ignite.engine import Engine
 
 
 GAMMA = 0.9
 BATCH_SIZE = 16
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 1e-5
 POLICY_BETA = 0.1
 
 # have to be less or equal to env.action_space.max_length
@@ -78,6 +77,8 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", default=False, action='store_true',
                         help="Use cuda for training")
     parser.add_argument("-r", "--run", required=True, help="Run name")
+    parser.add_argument("--load-cmd", help="If specified, command generator will be loaded "
+                                           "from given prefix, otherwise it will be trained")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
     params = common.PARAMS[args.params]
@@ -105,7 +106,13 @@ if __name__ == "__main__":
                              max_commands=LM_MAX_COMMANDS,
                              start_token=env.action_space.BOS_id,
                              sep_token=env.action_space.EOS_id).to(device)
-    if False:
+
+    if args.load_cmd is not None:
+        load_path = pathlib.Path(args.load_cmd)
+        prep.load_state_dict(torch.load(load_path/"prep.dat"))
+        cmd.load_state_dict(torch.load(load_path/"cmd.dat"))
+        print("Preprocessor and command generator are loaded from %s % load_path")
+    else:
         agent = model.CmdAgent(env, cmd, prep, device=device)
         exp_source = ptan.experience.ExperienceSourceFirstLast(
             env, agent, gamma=GAMMA, steps_count=1)
@@ -145,12 +152,10 @@ if __name__ == "__main__":
         common.setup_ignite(engine, exp_source, run_name)
         engine.run(common.batch_generator(buffer, BATCH_SIZE, BATCH_SIZE))
 
-        torch.save(prep.state_dict(), "prep.dat")
-        torch.save(cmd.state_dict(), "cmd.dat")
-    prep.load_state_dict(torch.load("prep.dat"))
-    cmd.load_state_dict(torch.load("cmd.dat"))
+    print("Using preprocessor and command generator")
+    prep.train(False)
+    cmd.train(False)
 
-    # DQN training using Preprocessor and Command generator as part of the environment
     val_env = gym.make(val_env_id)
     val_env = preproc.TextWorldPreproc(val_env)
 
@@ -162,8 +167,6 @@ if __name__ == "__main__":
         env, agent, gamma=GAMMA, steps_count=1)
     buffer = ptan.experience.ExperienceReplayBuffer(
         exp_source, params.replay_size)
-    #
-    # buffer.experience_source_iter = iter(exp_source)
 
     optimizer = optim.RMSprop(net.parameters(), lr=LEARNING_RATE, eps=1e-5)
 
@@ -191,48 +194,50 @@ if __name__ == "__main__":
     common.setup_ignite(engine, exp_source, run_name,
                         extra_metrics=('val_reward', 'val_steps'))
 
-    # @engine.on(ptan.ignite.PeriodEvents.ITERS_100_COMPLETED)
-    # def validate(engine):
-    #     reward = 0.0
-    #     steps = 0
-    #
-    #     obs = val_env.reset()
-    #
-    #     while True:
-    #         obs_t = prep.encode_sequences([obs['obs']]).to(device)
-    #         cmd_t = prep.encode_commands(obs['admissible_commands']).to(device)
-    #         q_vals = net.q_values(obs_t, cmd_t)
-    #         act = np.argmax(q_vals)
-    #
-    #         obs, r, is_done, _ = val_env.step(act)
-    #         steps += 1
-    #         reward += r
-    #         if is_done:
-    #             break
-    #     engine.state.metrics['val_reward'] = reward
-    #     engine.state.metrics['val_steps'] = steps
-    #     print("Validation got %.3f reward in %d steps" % (reward, steps))
-    #     best_val_reward = getattr(engine.state, "best_val_reward", None)
-    #     if best_val_reward is None:
-    #         engine.state.best_val_reward = reward
-    #     elif best_val_reward < reward:
-    #         print("Best validation reward updated: %s -> %s" % (best_val_reward, reward))
-    #         save_prep_name = save_path / ("best_val_%.3f_p.dat" % reward)
-    #         save_net_name = save_path / ("best_val_%.3f_n.dat" % reward)
-    #         torch.save(prep.state_dict(), save_prep_name)
-    #         torch.save(net.state_dict(), save_net_name)
-    #         engine.state.best_val_reward = reward
+    @engine.on(ptan.ignite.PeriodEvents.ITERS_100_COMPLETED)
+    def validate(engine):
+        reward = 0.0
+        steps = 0
 
-    # @engine.on(ptan.ignite.EpisodeEvents.BEST_REWARD_REACHED)
-    # def best_reward_updated(trainer: Engine):
-    #     reward = trainer.state.metrics['avg_reward']
-    #     if reward > 0:
-    #         save_prep_name = save_path / ("best_train_%.3f_p.dat" % reward)
-    #         save_net_name = save_path / ("best_train_%.3f_n.dat" % reward)
-    #         torch.save(prep.state_dict(), save_prep_name)
-    #         torch.save(net.state_dict(), save_net_name)
-    #         print("%d: best avg training reward: %.3f, saved" % (
-    #             trainer.state.iteration, reward))
+        obs = val_env.reset()
 
-    engine.run(common.batch_generator(buffer, 128, BATCH_SIZE))
+        while True:
+            obs_t = prep.encode_sequences([obs['obs']]).to(device)
+            cmds, cmds_embs_t = cmd.commands(obs_t)
+            q_vals = net.q_values(obs_t[0], cmds_embs_t[0])
+            act = np.argmax(q_vals)
+            cmd = cmds[0][act]
+            tokens = [
+                env.action_space.id2w[t]
+                for t in cmd
+                if t not in {cmd.sep_token, cmd.start_token}
+            ]
+            action = " ".join(tokens)
+            obs, r, is_done, _ = val_env.step(action)
+            steps += 1
+            reward += r
+            if is_done:
+                break
+        engine.state.metrics['val_reward'] = reward
+        engine.state.metrics['val_steps'] = steps
+        print("Validation got %.3f reward in %d steps" % (reward, steps))
+        best_val_reward = getattr(engine.state, "best_val_reward", None)
+        if best_val_reward is None:
+            engine.state.best_val_reward = reward
+        elif best_val_reward < reward:
+            print("Best validation reward updated: %s -> %s" % (best_val_reward, reward))
+            save_net_name = save_path / ("best_val_%.3f.dat" % reward)
+            torch.save(net.state_dict(), save_net_name)
+            engine.state.best_val_reward = reward
+
+    @engine.on(ptan.ignite.EpisodeEvents.BEST_REWARD_REACHED)
+    def best_reward_updated(trainer: Engine):
+        reward = trainer.state.metrics['avg_reward']
+        if reward > 0:
+            save_net_name = save_path / ("best_train_%.3f_.dat" % reward)
+            torch.save(net.state_dict(), save_net_name)
+            print("%d: best avg training reward: %.3f, saved" % (
+                trainer.state.iteration, reward))
+
+    engine.run(common.batch_generator(buffer, params.replay_initial, BATCH_SIZE))
 
