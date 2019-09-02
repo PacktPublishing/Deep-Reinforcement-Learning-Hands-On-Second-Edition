@@ -173,25 +173,30 @@ if __name__ == "__main__":
     net = model.DQNModel(obs_size=prep.obs_enc_size,
                          cmd_size=prep.obs_enc_size).to(device)
     tgt_net = ptan.agent.TargetNet(net)
-    agent = model.CmdDQNAgent(env, net, cmd, prep, epsilon=1, device=device)
+    cmd_encoder = preproc.Encoder(params.embeddings, prep.obs_enc_size).to(device)
+    tgt_cmd_encoder = ptan.agent.TargetNet(cmd_encoder)
+    agent = model.CmdDQNAgent(env, net, cmd, cmd_encoder, prep, epsilon=1, device=device)
     exp_source = ptan.experience.ExperienceSourceFirstLast(
         env, agent, gamma=GAMMA, steps_count=1)
     buffer = ptan.experience.ExperienceReplayBuffer(
         exp_source, params.replay_size)
 
-    optimizer = optim.RMSprop(net.parameters(), lr=LEARNING_RATE, eps=1e-5)
+    optimizer = optim.RMSprop(itertools.chain(net.parameters(), cmd_encoder.parameters()),
+                              lr=LEARNING_RATE, eps=1e-5)
 
     def process_batch(engine, batch):
         optimizer.zero_grad()
         loss_t = model.calc_loss_dqncmd(
-            batch, prep, cmd, net, tgt_net.target_model, GAMMA,
-            env, device)
+            batch, prep, cmd,
+            cmd_encoder, tgt_cmd_encoder.target_model,
+            net, tgt_net.target_model, GAMMA, env, device)
         loss_t.backward()
         optimizer.step()
         eps = 1 - engine.state.iteration / params.epsilon_steps
         agent.epsilon = max(params.epsilon_final, eps)
         if engine.state.iteration % params.sync_nets == 0:
             tgt_net.sync()
+            tgt_cmd_encoder.sync()
         return {
             "loss": loss_t.item(),
             "epsilon": agent.epsilon,
@@ -206,6 +211,7 @@ if __name__ == "__main__":
                         extra_metrics=('val_reward', 'val_steps'))
 
     @engine.on(ptan.ignite.PeriodEvents.ITERS_100_COMPLETED)
+    @torch.no_grad()
     def validate(engine):
         reward = 0.0
         steps = 0
@@ -214,11 +220,11 @@ if __name__ == "__main__":
 
         while True:
             obs_t = prep.encode_sequences([obs['obs']]).to(device)
-            cmds, cmds_embs = cmd.commands(obs_t)
-            cmd_embs_t = torch.stack(cmds_embs[0])
+            cmds = cmd.commands(obs_t)[0]
+            cmd_embs_t = prep._apply_encoder(cmds, cmd_encoder)
             q_vals = net.q_values(obs_t[0], cmd_embs_t)
             act = np.argmax(q_vals)
-            best_cmd = cmds[0][act]
+            best_cmd = cmds[act]
             tokens = [
                 env.action_space.id2w[t]
                 for t in best_cmd
