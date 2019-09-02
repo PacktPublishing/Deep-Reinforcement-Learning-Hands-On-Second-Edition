@@ -136,7 +136,7 @@ if __name__ == "__main__":
                         cmds.append(t)
                 commands.append(cmds)
 
-            loss_t = model.pretrain_policy_loss(cmd, commands, obs_t)
+            loss_t = model.pretrain_loss(cmd, commands, obs_t)
             loss_t.backward()
             optimizer.step()
 

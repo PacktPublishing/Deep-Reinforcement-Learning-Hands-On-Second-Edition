@@ -14,6 +14,8 @@ if __name__ == "__main__":
     parser.add_argument("-y", default="Reward", help="Y label")
     parser.add_argument("-i", "--input", action='append', help="Input files to process")
     parser.add_argument("-l", "--legend", action='append', help="Set label for legend")
+    parser.add_argument("--ylog", action='store_true', default=False, help="Set y axis log scale")
+    parser.add_argument("--lloc", default='upper left', help="Sets legend location")
     args = parser.parse_args()
 
     data = []
@@ -65,7 +67,7 @@ if __name__ == "__main__":
 
     ax1.grid(True, axis='both')
     if args.legend:
-        ax1.legend(args.legend, loc='upper left', fancybox=True)
+        ax1.legend(args.legend, loc=args.lloc, fancybox=True)
     ax1.set_xlabel(x_label)
     ax1.set_xlim(0, max_hours)
     ax1.set_ylabel(args.y)
@@ -79,7 +81,8 @@ if __name__ == "__main__":
         else:
             return ballpark.business(v, precision=3)
 
-
+    if args.ylog:
+        plt.yscale('log')
     if not args.legend:
         ax2.xaxis.set_major_formatter(FuncFormatter(label_formatter))
 
