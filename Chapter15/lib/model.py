@@ -139,8 +139,10 @@ def calc_loss_dqn(batch, preprocessor, tgt_preprocessor, net,
 
 
 class CommandModel(nn.Module):
-    def __init__(self, obs_size: int, dict_size: int, embeddings: nn.Embedding,
-                 max_tokens: int, max_commands: int, start_token: int, sep_token: int):
+    def __init__(self, obs_size: int, dict_size: int,
+                 embeddings: nn.Embedding, max_tokens: int,
+                 max_commands: int, start_token: int,
+                 sep_token: int):
         super(CommandModel, self).__init__()
 
         self.emb = embeddings
@@ -159,6 +161,18 @@ class CommandModel(nn.Module):
         hid_t = obs_t.unsqueeze(0)
         output, _ = self.rnn(input_seq, (hid_t, hid_t))
         return self.out(output)
+
+    def commands_embs(self, batch_obs_t, batch_commands):
+        batch_cmd = [
+            self.emb(torch.tensor(cmd, dtype=torch.long).
+                     to(batch_obs_t.device))
+            for cmd in batch_commands
+        ]
+        seq = rnn_utils.pack_sequence(batch_cmd, enforce_sorted=False)
+        batch_obs_t = batch_obs_t.unsqueeze(0)
+        hid = (batch_obs_t, batch_obs_t)
+        out, hid = self.rnn(seq, hid)
+        return hid[0].squeeze(0)
 
     def commands(self, obs_batch):
         """
@@ -212,16 +226,6 @@ class CommandModel(nn.Module):
             inp_t = inp_t.unsqueeze(1)
         return commands, embs
 
-    def commands_embs(self, batch_obs_t, batch_commands):
-        batch_cmd = [
-            self.emb(torch.tensor(cmd, dtype=torch.long).to(batch_obs_t.device))
-            for cmd in batch_commands
-        ]
-        seq = rnn_utils.pack_sequence(batch_cmd, enforce_sorted=False)
-        batch_obs_t = batch_obs_t.unsqueeze(0)
-        hid = (batch_obs_t, batch_obs_t)
-        out, hid = self.rnn(seq, hid)
-        return hid[0].squeeze(0)
 
 
 class A2CModel(nn.Module):
