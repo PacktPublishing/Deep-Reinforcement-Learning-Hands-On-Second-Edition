@@ -6,7 +6,6 @@ from typing import List
 
 import torch
 import torch.nn as nn
-import torch.nn.utils.rnn as rnn_utils
 import torch.nn.functional as F
 import torch.distributions as t_distr
 

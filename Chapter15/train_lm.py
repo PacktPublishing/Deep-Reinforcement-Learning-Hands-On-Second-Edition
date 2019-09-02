@@ -21,12 +21,11 @@ GAMMA = 0.9
 BATCH_SIZE = 16
 LEARNING_RATE_LM = 1e-5
 LEARNING_RATE = 1e-5
-POLICY_BETA = 0.1
 
 # have to be less or equal to env.action_space.max_length
 LM_MAX_TOKENS = 4
 LM_MAX_COMMANDS = 10
-LM_STOP_AVG_REWARD = 0.0
+LM_STOP_AVG_REWARD = -0.5
 
 
 EXTRA_GAME_INFO = {
