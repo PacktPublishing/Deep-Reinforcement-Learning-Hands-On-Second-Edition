@@ -1,0 +1,46 @@
+<mujoco model="four_short_legs">
+    <compiler inertiafromgeom="true" settotalmass="{{compiler.totalMass}}"/>
+	<default>
+		<joint armature="{{joint.armature}}" damping="{{joint.damping}}" limited="true" frictionloss="{{joint.frictionloss}}"/>
+        <geom friction="{{geom.friction}} 0.1 0.1"/>
+        <!--<geom conaffinity="0" condim="3" rgba="0.8 0.6 0.4 1" friction="1.5 0.1 0.1" density="5.0"/>-->
+		<!--<motor ctrlrange="-3 3"/>-->
+        <!--<motor gainprm="10"/>-->
+        <position kp="{{position.kp}}"/>
+	</default>
+	<option gravity="0 0 -9.8" integrator="RK4" timestep="0.02"/>
+	<size nstack="3000"/>
+    <worldbody>
+        <!--<geom name="ground" type="plane" pos="0 0 0"/>-->
+        <body name="base" pos="0 0 0.01">
+            <geom name="base" pos="0 0 0.0" type="box" size="0.0375 0.0315 0.01" euler="0 0 0"/>
+            <body name="leg_rb" pos="0.04 -0.022 -0.005">
+                <joint axis="1 0 0" name="servo_rb" pos="0 0 0" range="0 180" type="hinge"/>
+                <geom fromto="0 -0.013 0 0 0.013 0" name="leg" size="0.003 0.002" type="capsule"/>
+            </body>
+            <body name="leg_rf" pos="0.04 0.022 -0.005">
+                <joint axis="1 0 0" name="servo_rf" pos="0 0 0" range="-180 0" type="hinge"/>
+                <geom fromto="0 -0.013 0 0 0.013 0" name="leg" size="0.003 0.002" type="capsule"/>
+            </body>
+            <body name="leg_lb" pos="-0.04 -0.022 -0.005">
+                <joint axis="1 0 0" name="servo_lb" pos="0 0 0" range="0 180" type="hinge"/>
+                <geom fromto="0 -0.013 0 0 0.013 0" name="leg" size="0.003 0.002" type="capsule"/>
+            </body>
+            <body name="leg_lf" pos="-0.04 0.022 -0.005">
+                <joint axis="1 0 0" name="servo_lf" pos="0 0 0" range="-180 0" type="hinge"/>
+                <geom fromto="0 -0.013 0 0 0.013 0" name="leg" size="0.003 0.002" type="capsule"/>
+            </body>
+            <!-- IMU sensor box -->
+            <body name="IMU" pos="0.0025 0.03 0.02" euler="0 0 0">
+                <geom name="IMU" pos="0 0 0" type="box" size="0.02 0.02 0.003" euler="0 0 0"/>
+                <joint armature="0" damping="0" limited="false" axis="0 0 0" name="IMUroot" pos="0 0 0" stiffness="0" type="fixed"/>
+            </body>
+        </body>
+    </worldbody>
+    <actuator>
+        <position joint="servo_rb" name="servo_rb"/>
+        <position joint="servo_rf" name="servo_rf"/>
+        <position joint="servo_lb" name="servo_lb"/>
+        <position joint="servo_lf" name="servo_lf"/>
+    </actuator>
+</mujoco>
