@@ -31,6 +31,7 @@ class FourShortLegsRobot(robot_bases.MJCFBasedRobot):
         self.imu_link_idx = None
         self.scene = None
         self.state_id = None
+        self.pose = None
 
     def close(self):
         pass
@@ -56,6 +57,7 @@ class FourShortLegsRobot(robot_bases.MJCFBasedRobot):
         else:
             self._p.restoreState(self.state_id)
         self.robot_specific_reset(self._p)
+        self.pose = self.robot_body.pose()
         return self.calc_state()
 
     def _get_imu_link_index(self, joint_name):
@@ -130,16 +132,8 @@ class FourShortLegsRobot(robot_bases.MJCFBasedRobot):
         for idx, j_name in enumerate(self.SERVO_JOINT_NAMES):
             j = self.jdict[j_name]
             res.append(j.get_position() * self._joint_name_direction(j_name) / np.pi)
-        # if self.imu_observations:
-        #     obs = []
-        #     obs.extend(self.get_link_lin_vel())
-        #     obs.extend(self.get_link_ang_vel())
-        #     if self.obs_bias:
-        #         obs = [v + bias for v, bias in zip(obs, OBSERVATION_BIAS)]
-        #     res.extend(obs)
-        # else:
-        #     res.extend(self.get_link_pos())
-        #     res.extend(self.get_link_orient())
+        rpy = self.pose.rpy()
+        res.extend(rpy)
         return np.array(res, copy=False)
 
     def robot_specific_reset(self, client):
