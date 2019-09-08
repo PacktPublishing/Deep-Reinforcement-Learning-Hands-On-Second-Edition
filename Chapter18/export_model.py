@@ -15,7 +15,7 @@ ACTIONS_DIM = 4
 def write_prefix(fd):
     fd.write("""
 import math as m
-from libhw.ulinalg import ulinalg, umatrix
+from lib    hw.ulinalg import ulinalg, umatrix
 
 
 def relu(x):

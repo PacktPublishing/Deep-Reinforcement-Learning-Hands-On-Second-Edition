@@ -6,7 +6,8 @@ INPUT_SIZE = 28
 
 
 def run():
-    inputs = [0.0] * 28
+    inputs = [[0.0]] * INPUT_SIZE
+    print(inputs)
 
     while True:
         us = utime.ticks_us()
