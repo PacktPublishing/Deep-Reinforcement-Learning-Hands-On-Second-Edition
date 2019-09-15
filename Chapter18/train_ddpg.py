@@ -25,8 +25,8 @@ REPLAY_INITIAL = 10000
 TEST_ITERS = 1000
 
 
-def make_env(reward_scheme: microtaur.RewardScheme):
-    env = gym.make(microtaur.ENV_ID, reward_scheme=reward_scheme)
+def make_env(reward_scheme: microtaur.RewardScheme, zero_yaw: bool = False):
+    env = gym.make(microtaur.ENV_ID, reward_scheme=reward_scheme, zero_yaw = zero_yaw)
     assert isinstance(env, gym.wrappers.TimeLimit)
     env._max_episode_steps = TIME_LIMIT
     if OBS_HISTORY_STEPS > 1:
@@ -61,14 +61,15 @@ if __name__ == "__main__":
     reward_schemes = [r.name for r in microtaur.RewardScheme]
     parser.add_argument("--reward", default='Height', choices=reward_schemes,
                         help="Reward scheme to use, one of: %s" % reward_schemes)
+    parser.add_argument("--zero-yaw", default=False, action='store_true', help="Pass zero yaw to observation")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
     save_path = os.path.join("saves", "ddpg-" + args.name)
     os.makedirs(save_path, exist_ok=True)
 
-    env = make_env(microtaur.RewardScheme[args.reward])
-    test_env = make_env(microtaur.RewardScheme[args.reward])
+    env = make_env(microtaur.RewardScheme[args.reward], zero_yaw=args.zero_yaw)
+    test_env = make_env(microtaur.RewardScheme[args.reward], zero_yaw=args.zero_yaw)
     print("Env: %s, obs=%s, act=%s" % (env, env.observation_space, env.action_space))
 
     act_net = ddpg.DDPGActor(env.observation_space.shape[0], env.action_space.shape[0]).to(device)

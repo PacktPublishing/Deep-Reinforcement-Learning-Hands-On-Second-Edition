@@ -21,10 +21,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", "--rotate", type=int, help="If given, rotate given leg 0..3 back and forth")
     parser.add_argument("-m", "--model", help="Optional model file to load")
+    parser.add_argument("--zero-yaw", default=False, action='store_true', help="Pass zero yaw to observation")
     args = parser.parse_args()
 
     microtaur.register()
-    env = gym.make(microtaur.ENV_ID, render=True)
+    env = gym.make(microtaur.ENV_ID, render=True, zero_yaw=args.zero_yaw)
     if OBS_HISTORY_STEPS > 1:
         env = ptan.common.wrappers_simple.FrameStack1D(env, OBS_HISTORY_STEPS)
 

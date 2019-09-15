@@ -21,7 +21,7 @@ class FourShortLegsRobot(robot_bases.MJCFBasedRobot):
     IMU_JOINT_NAME = "IMUroot"
     SERVO_JOINT_NAMES = ('servo_rb', 'servo_rf', 'servo_lb', 'servo_lf')
 
-    def __init__(self, time_step: float):
+    def __init__(self, time_step: float, zero_yaw: bool):
         action_dim = 4
         # current servo positions + pitch, roll and yaw angles
         obs_dim = 4 + 3
@@ -32,6 +32,7 @@ class FourShortLegsRobot(robot_bases.MJCFBasedRobot):
         self.scene = None
         self.state_id = None
         self.pose = None
+        self.zero_yaw = zero_yaw
 
     def close(self):
         pass
@@ -133,7 +134,11 @@ class FourShortLegsRobot(robot_bases.MJCFBasedRobot):
             j = self.jdict[j_name]
             res.append(j.get_position() * self._joint_name_direction(j_name) / np.pi)
         rpy = self.pose.rpy()
-        res.extend(rpy)
+        if self.zero_yaw:
+            res.extend(rpy[:2])
+            res.append(0.0)
+        else:
+            res.extend(rpy)
         return np.array(res, copy=False)
 
     def robot_specific_reset(self, client):
@@ -166,12 +171,13 @@ class FourShortLegsEnv(env_bases.MJCFBaseBulletEnv):
 
     def __init__(self, render=False, target_dir=(1, 0),
                  robot_params: Optional[List[float]] = None, timestep: float = 0.01,
-                 frameskip: int = 4, reward_scheme: RewardScheme = RewardScheme.Height):
+                 frameskip: int = 4, reward_scheme: RewardScheme = RewardScheme.Height,
+                 zero_yaw: bool = False):
         self.frameskip = frameskip
         self.timestep = timestep / self.frameskip
         self.reward_scheme = reward_scheme
         if robot_params is None:
-            robot = FourShortLegsRobot(self.timestep)
+            robot = FourShortLegsRobot(self.timestep, zero_yaw=zero_yaw)
         else:
             robot = FourShortLegsRobotParametrized(self.timestep, robot_params)
         super(FourShortLegsEnv, self).__init__(robot, render=render)
