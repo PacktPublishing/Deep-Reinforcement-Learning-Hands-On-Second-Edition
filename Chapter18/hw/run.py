@@ -8,7 +8,6 @@ from libhw.hw_sensors import lis331dlh as lis
 from libhw.sensor_buffer import SensorsBuffer
 from libhw.postproc import PostPitchRoll
 from libhw import servo
-from libhw import m1 as model
 
 SDA = 'X12'
 SCL = 'Y11'
@@ -17,7 +16,14 @@ INV = [True, False, True, False]
 STACK_OBS = 4
 
 
-def run():
+def do_import(module_name):
+    res = __import__("libhw.%s" % module_name, globals(), locals(), [module_name])
+    return res
+
+
+def run(model_name):
+    model = do_import(model_name)
+
     i2c = I2C(freq=400000, scl=SCL, sda=SDA)
     acc = lis.Lis331DLH(i2c)
     buf = SensorsBuffer([acc], timer_index=1, freq=100, batch_size=10, buffer_size=100)

@@ -13,44 +13,24 @@ ACTIONS_DIM = 4
 
 
 def write_prefix(fd):
-    fd.write("""
-import math as m
-from lib    hw.ulinalg import ulinalg, umatrix
-
-
-def relu(x):
-    return x.apply(lambda v: 0.0 if v < 0.0 else v)
-
-
-def tanh(x):
-    return x.apply(m.tanh)
-
-
-def linear(x, w_pair):
-    w, b = w_pair
-    y = ulinalg.dot(w, x) + b
-    return y
-
+    fd.write("""from . import nn
 
 """)
 
 
 def write_weights(fd, weights):
     fd.write("WEIGHTS = [\n")
-
     for w, b in weights:
-        fd.write("(umatrix.matrix(%s), umatrix.matrix([%s]).T),\n" % (
+        fd.write("(%s, [%s]),\n" % (
             w.tolist(),  b.tolist()
         ))
-
     fd.write("]\n")
 
 
 def write_forward_pass(fd, forward_pass):
     fd.write("""
 
-def forward(vals):
-    x = umatrix.matrix(vals, cstride=1, rstride=len(vals), dtype=float).T
+def forward(x):
 """)
 
     for f in forward_pass:
@@ -60,14 +40,20 @@ def forward(vals):
 
 
 def write_suffix(fd, input_dim):
-    fd.write("""
+    fd.write(f"""
 
-if __name__ == "__main__":
-    x = [0.0] * %d
+def test():
+    x = [[0.0]] * {input_dim}
     y = forward(x)
-    print(y.shape)
     print(y)
-""" % input_dim)
+    
+    
+def show():
+    for idx, (w, b) in enumerate(WEIGHTS):
+        print("Layer %d:" % (idx+1))
+        print("W: (%d, %d), B: (%d, %d)" % (len(w), len(w[0]), len(b), len(b[0])))
+
+""")
     pass
 
 
@@ -89,14 +75,14 @@ if __name__ == "__main__":
     for m in act_net.net:
         if isinstance(m, nn.Linear):
             w = [m.weight.detach().numpy(), m.bias.detach().numpy()]
-            forward_pass.append(f"x = linear(x, WEIGHTS[{len(weights_data)}])")
+            forward_pass.append(f"x = nn.linear(x, WEIGHTS[{len(weights_data)}])")
             weights_data.append(w)
         elif isinstance(m, nn.ReLU):
-            forward_pass.append("x = relu(x)")
+            forward_pass.append("x = nn.relu(x)")
         elif isinstance(m, nn.Tanh):
-            forward_pass.append("x = tanh(x)")
+            forward_pass.append("x = nn.tanh(x)")
         else:
-            print('Unknown module! %s' % m)
+            print('Unsupported layer! %s' % m)
 
     with output_path.open("wt", encoding='utf-8') as fd_out:
         write_prefix(fd_out)
