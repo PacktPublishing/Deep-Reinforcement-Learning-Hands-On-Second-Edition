@@ -36,12 +36,14 @@ if __name__ == "__main__":
         net.load_state_dict(torch.load(args.model, map_location=lambda storage, loc: storage))
 
     obs = env.reset()
-    actions = [0, 0, 0, 0]
+    actions = [0.5, 0.5, 0.5, 0.5]
     if net is not None:
         actions = infer(net, obs)
     positions = list(microtaur.generate_positions(0, 10))
     idx = 0
     while True:
+        # get the height from the model
+        h = env.unwrapped.robot.get_link_pos()[-1]
         obs, r, *_ = env.step(actions)
         if args.rotate is not None:
             actions[args.rotate] = positions[idx]
@@ -50,5 +52,5 @@ if __name__ == "__main__":
         idx += 1
         idx %= len(positions)
         time.sleep(0.1)
-        print(obs[-3:])
+        print(f"r={r}, h={h}, obs[-3:]={obs[-3:]}")
     env.close()
