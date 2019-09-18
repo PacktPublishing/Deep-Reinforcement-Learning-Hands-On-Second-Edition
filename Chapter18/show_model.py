@@ -22,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--rotate", type=int, help="If given, rotate given leg 0..3 back and forth")
     parser.add_argument("-m", "--model", help="Optional model file to load")
     parser.add_argument("--zero-yaw", default=False, action='store_true', help="Pass zero yaw to observation")
+    parser.add_argument("-v", "--value", default=0.0, type=float, help="Value to be assigned as action on all legs, default=0.0")
     args = parser.parse_args()
 
     microtaur.register()
@@ -36,7 +37,7 @@ if __name__ == "__main__":
         net.load_state_dict(torch.load(args.model, map_location=lambda storage, loc: storage))
 
     obs = env.reset()
-    actions = [0.5, 0.5, 0.5, 0.5]
+    actions = [args.value, args.value, args.value, args.value]
     if net is not None:
         actions = infer(net, obs)
     positions = list(microtaur.generate_positions(0, 10))
