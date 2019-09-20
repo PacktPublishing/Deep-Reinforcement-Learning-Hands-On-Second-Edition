@@ -39,7 +39,8 @@ class PostPitchRoll:
     def __init__(self, buffer, pad_yaw):
         assert isinstance(buffer, SensorsBuffer)
         assert len(buffer.sensors) == 1
-        assert isinstance(buffer.sensors[0], hw_sensors.lis331dlh.Lis331DLH)
+        assert isinstance(buffer.sensors[0],
+                          hw_sensors.lis331dlh.Lis331DLH)
         self.buffer = buffer
         self.smoother = Smoother(self.SMOOTH_WINDOW, components=3)
         self.pad_yaw = pad_yaw
@@ -49,7 +50,8 @@ class PostPitchRoll:
             for b in b_list:
                 data = hw_sensors.lis331dlh.Lis331DLH.decode(b)
                 self.smoother.push(data)
-                pitch, roll = pitch_roll_simple(*self.smoother.values())
+                pitch, roll = \
+                    pitch_roll_simple(*self.smoother.values())
                 res = [pitch, roll]
                 if self.pad_yaw:
                     res.append(0.0)
