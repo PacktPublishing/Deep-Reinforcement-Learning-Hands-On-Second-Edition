@@ -42,16 +42,18 @@ if __name__ == "__main__":
         actions = infer(net, obs)
     positions = list(microtaur.generate_positions(0, 10))
     idx = 0
-    while True:
-        # get the height from the model
-        h = env.unwrapped.robot.get_link_pos()[-1]
-        obs, r, *_ = env.step(actions)
-        if args.rotate is not None:
-            actions[args.rotate] = positions[idx]
-        elif net is not None:
-            actions = infer(net, obs)
-        idx += 1
-        idx %= len(positions)
-        time.sleep(0.1)
-        print(f"r={r}, h={h}, obs[-3:]={obs[-3:]}")
-    env.close()
+    try:
+        while True:
+            # get the height from the model
+            h = env.unwrapped.robot.get_link_pos()[-1]
+            obs, r, *_ = env.step(actions)
+            if args.rotate is not None:
+                actions[args.rotate] = positions[idx]
+            elif net is not None:
+                actions = infer(net, obs)
+            idx += 1
+            idx %= len(positions)
+            time.sleep(0.1)
+            print(f"r={r}, h={h}, obs[-3:]={obs[-3:]}")
+    finally:
+        env.close()

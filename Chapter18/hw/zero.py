@@ -53,3 +53,26 @@ def stand():
             utime.sleep_ms(1000)
     finally:
         brain.deinit()
+
+
+def set(actions):
+    ch = servo.pins_to_timer_channels(PINS)
+    brain = servo.ServoBrain()
+    brain.init(ch, inversions=INV)
+    try:
+        while True:
+            brain.positions = actions
+            utime.sleep_ms(1000)
+    finally:
+        brain.deinit()
+
+
+def set_old(actions):
+    brain = servo.ServoBrainOld(PINS)
+    brain.init()
+    try:
+        while True:
+            brain.positions = actions
+            utime.sleep_ms(1000)
+    finally:
+        brain.deinit()

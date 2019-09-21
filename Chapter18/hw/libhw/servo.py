@@ -3,8 +3,8 @@ import pyb
 
 class ServoBrain:
     FREQ = 50               # 20ms -- standard pulse interval for servos
-    MIN_PERCENT = 3
-    MAX_PERCENT = 12
+    MIN_PERCENT = 2.3
+    MAX_PERCENT = 12.7
     MIN_POS = 0
     MAX_POS = 1
 

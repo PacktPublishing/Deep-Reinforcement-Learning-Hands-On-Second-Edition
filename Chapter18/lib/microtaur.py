@@ -174,7 +174,7 @@ class FourShortLegsEnv(env_bases.MJCFBaseBulletEnv):
     HEIGHT_BOUNDARY = 0.035
     ORIENT_TOLERANCE = 1e-2
 
-    def __init__(self, render=False, target_dir=(1, 0),
+    def __init__(self, render=False, target_dir=(0, 1),
                  timestep: float = 0.01, frameskip: int = 4,
                  reward_scheme: RewardScheme = RewardScheme.Height,
                  zero_yaw: bool = False):
