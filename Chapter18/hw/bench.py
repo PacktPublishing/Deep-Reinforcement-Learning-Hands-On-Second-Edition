@@ -1,6 +1,6 @@
 import utime
 
-from libhw import m1 as model
+from libhw import t1 as model
 
 INPUT_SIZE = 28
 

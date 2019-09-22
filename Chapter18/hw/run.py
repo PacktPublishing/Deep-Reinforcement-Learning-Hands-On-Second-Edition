@@ -17,7 +17,8 @@ STACK_OBS = 4
 
 
 def do_import(module_name):
-    res = __import__("libhw.%s" % module_name, globals(), locals(), [module_name])
+    res = __import__("libhw.%s" % module_name,
+                     globals(), locals(), [module_name])
     return res
 
 
@@ -26,7 +27,8 @@ def run(model_name):
 
     i2c = I2C(freq=400000, scl=SCL, sda=SDA)
     acc = lis.Lis331DLH(i2c)
-    buf = SensorsBuffer([acc], timer_index=1, freq=100, batch_size=10, buffer_size=100)
+    buf = SensorsBuffer([acc], timer_index=1, freq=100,
+                        batch_size=10, buffer_size=100)
     post = PostPitchRoll(buf, pad_yaw=True)
     buf.start()
     ch = servo.pins_to_timer_channels(PINS)
