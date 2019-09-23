@@ -1,0 +1,26 @@
+diff -Nur PYBV11/mpconfigboard.h PYBV11_my/mpconfigboard.h
+--- PYBV11/mpconfigboard.h	2019-05-29 09:51:29.000000000 +0300
++++ PYBV11_my/mpconfigboard.h	2019-08-19 12:20:22.000000000 +0300
+@@ -89,7 +89,7 @@
+ #define MICROPY_HW_LED_OFF(pin)     (mp_hal_pin_low(pin))
+ 
+ // SD card detect switch
+-#define MICROPY_HW_SDCARD_DETECT_PIN        (pin_A8)
++#define MICROPY_HW_SDCARD_DETECT_PIN        (pin_A15)
+ #define MICROPY_HW_SDCARD_DETECT_PULL       (GPIO_PULLUP)
+ #define MICROPY_HW_SDCARD_DETECT_PRESENT    (GPIO_PIN_RESET)
+ 
+diff -Nur PYBV11/pins.csv PYBV11_my/pins.csv
+--- PYBV11/pins.csv	2019-05-29 09:51:29.000000000 +0300
++++ PYBV11_my/pins.csv	2019-08-19 12:14:31.000000000 +0300
+@@ -51,8 +51,8 @@
+ SD_D3,PC11
+ SD_CMD,PD2
+ SD_CK,PC12
+-SD,PA8
+-SD_SW,PA8
++SD,PA15
++SD_SW,PA15
+ USB_VBUS,PA9
+ USB_ID,PA10
+ USB_DM,PA11
