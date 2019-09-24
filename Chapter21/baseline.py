@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import gym
 import ptan
 import argparse
 import random
@@ -10,12 +9,13 @@ import torch.optim as optim
 
 from ignite.engine import Engine
 
-from lib import common, dqn_extra
+from lib import common, dqn_extra, atari_wrappers
 
 NAME = "baseline"
 STATES_TO_EVALUATE = 1000
 EVAL_EVERY_FRAME = 10000
 N_STEPS = 4
+N_ENVS = 3
 
 
 @torch.no_grad()
@@ -36,9 +36,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
-    env = gym.make(params.env_name)
-    env = ptan.common.wrappers.wrap_dqn(env)
-    env.seed(common.SEED)
+    envs = []
+    for _ in range(N_ENVS):
+        env = atari_wrappers.make_atari(params.env_name, skip_noop=True, skip_maxskip=True)
+        env = atari_wrappers.wrap_deepmind(env, pytorch_img=True, frame_stack=True, frame_stack_count=2)
+        env.seed(common.SEED)
+        envs.append(env)
 
     net = dqn_extra.BaselineDQN(env.observation_space.shape, env.action_space.n).to(device)
 
@@ -48,7 +51,7 @@ if __name__ == "__main__":
     agent = ptan.agent.DQNAgent(net, selector, device=device)
 
     exp_source = ptan.experience.ExperienceSourceFirstLast(
-        env, agent, gamma=params.gamma, steps_count=N_STEPS)
+        envs, agent, gamma=params.gamma, steps_count=N_STEPS)
     buffer = ptan.experience.ExperienceReplayBuffer(
         exp_source, buffer_size=params.replay_size)
     optimizer = optim.Adam(net.parameters(), lr=params.learning_rate)
