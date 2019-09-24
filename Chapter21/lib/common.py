@@ -33,9 +33,9 @@ HYPERPARAMS = {
         'env_name':         "SeaquestNoFrameskip-v4",
         'stop_reward':      10000.0,
         'run_name':         'seaquest',
-        'replay_size':      500000,
+        'replay_size':      1000000,
         'replay_initial':   20000,
-        'target_net_sync':  1000,
+        'target_net_sync':  5000,
         'epsilon_frames':   10 ** 6,
         'epsilon_start':    1.0,
         'epsilon_final':    0.02,
@@ -186,5 +186,5 @@ def setup_ignite(engine: Engine, params: SimpleNamespace,
     handler = tb_logger.OutputHandler(
         tag="train", metric_names=metrics,
         output_transform=lambda a: a)
-    event = ptan_ignite.PeriodEvents.ITERS_100_COMPLETED
+    event = ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED
     tb.attach(engine, log_handler=handler, event_name=event)

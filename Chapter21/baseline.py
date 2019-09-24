@@ -14,7 +14,7 @@ from lib import common, dqn_extra
 
 NAME = "baseline"
 STATES_TO_EVALUATE = 1000
-EVAL_EVERY_FRAME = 100
+EVAL_EVERY_FRAME = 10000
 N_STEPS = 4
 
 
