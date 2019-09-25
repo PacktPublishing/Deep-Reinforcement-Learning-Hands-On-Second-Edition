@@ -177,3 +177,17 @@ class BaselineDQN(nn.Module):
         fx = x.float() / 256
         conv_out = self.conv(fx).view(fx.size()[0], -1)
         return self.fc_adv(conv_out), self.fc_val(conv_out)
+
+
+class MountainCarBaseDQN(nn.Module):
+    def __init__(self, obs_size, n_actions, hid_size: int = 128):
+        super(MountainCarBaseDQN, self).__init__()
+
+        self.net = nn.Sequential(
+            nn.Linear(obs_size, hid_size),
+            nn.ReLU(),
+            nn.Linear(hid_size, n_actions),
+        )
+
+    def forward(self, x):
+        return self.net(x)

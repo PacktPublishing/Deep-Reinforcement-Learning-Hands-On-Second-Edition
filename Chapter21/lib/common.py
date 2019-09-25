@@ -59,10 +59,10 @@ def unpack_batch(batch: List[ptan.experience.ExperienceFirstLast]):
         else:
             lstate = np.array(exp.last_state, copy=False)
         last_states.append(lstate)
-    return np.array(states, copy=False), np.array(actions), \
+    return np.array(states, copy=False, dtype=np.float32), np.array(actions), \
            np.array(rewards, dtype=np.float32), \
            np.array(dones, dtype=np.uint8), \
-           np.array(last_states, copy=False)
+           np.array(last_states, copy=False, dtype=np.float32)
 
 
 def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu"):
