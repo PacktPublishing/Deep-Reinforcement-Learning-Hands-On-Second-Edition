@@ -50,15 +50,33 @@ HYPERPARAMS = {
         'run_name':         'noisynet',
         'replay_size':      100000,
         'replay_initial':   1000,
-        'target_net_sync':  100,
-        'learning_rate':    0.001,
+        'target_net_sync':  1000,
+        'learning_rate':    0.0001,
         'gamma':            0.99,
         'batch_size':       32,
+        'eps_decay_trigger': False,
+    }),
+    'counts': SimpleNamespace(**{
+        'env_name':         "MountainCar-v0",
+        'stop_reward':      -120.0,
+        'run_name':         'counts',
+        'replay_size':      100000,
+        'replay_initial':   1000,
+        'target_net_sync':  1000,
+        'learning_rate':    0.0001,
+        'gamma':            0.99,
+        'batch_size':       32,
+        'counts_reward_scale': 0.5,
         'eps_decay_trigger': False,
     }),
 }
 
 N_STEPS = 4
+
+
+def counts_hash(obs):
+    r = obs.tolist()
+    return tuple(map(lambda v: round(v, 3), r))
 
 
 if __name__ == "__main__":
@@ -72,8 +90,10 @@ if __name__ == "__main__":
     params = HYPERPARAMS[args.params]
 
     env = gym.make(params.env_name)
+    if args.params == 'counts':
+        env = dqn_extra.PseudoCountRewardWrapper(env, reward_scale=params.counts_reward_scale, hash_function=counts_hash)
     env.seed(common.SEED)
-    if args.params.startswith("egreedy"):
+    if args.params.startswith("egreedy") or args.params == 'counts':
         net = dqn_extra.MountainCarBaseDQN(env.observation_space.shape[0], env.action_space.n)
     elif args.params == 'noisynet':
         net = dqn_extra.MountainCarNoisyNetDQN(env.observation_space.shape[0], env.action_space.n)

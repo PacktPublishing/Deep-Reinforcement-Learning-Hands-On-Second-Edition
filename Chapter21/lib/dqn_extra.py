@@ -1,4 +1,6 @@
+import gym
 import math
+import collections
 
 import numpy as np
 import torch
@@ -205,3 +207,27 @@ class MountainCarNoisyNetDQN(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
+
+class PseudoCountRewardWrapper(gym.Wrapper):
+    def __init__(self, env, hash_function = lambda o: o, reward_scale: float = 1.0):
+        super(PseudoCountRewardWrapper, self).__init__(env)
+        self.hash_function = hash_function
+        self.reward_scale = reward_scale
+        self.counts = collections.Counter()
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        extra_reward = self._count_observation(obs)
+        return obs, reward + self.reward_scale * extra_reward, done, info
+
+    def _count_observation(self, obs) -> float:
+        """
+        Increments observation counter and returns pseudo-count reward
+        :param obs: observation
+        :return: extra reward
+        """
+        h = self.hash_function(obs)
+        self.counts[h] += 1
+        return np.sqrt(1/self.counts[h])
+
