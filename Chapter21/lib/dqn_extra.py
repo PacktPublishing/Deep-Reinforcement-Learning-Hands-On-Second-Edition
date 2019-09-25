@@ -191,3 +191,17 @@ class MountainCarBaseDQN(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
+
+class MountainCarNoisyNetDQN(nn.Module):
+    def __init__(self, obs_size, n_actions, hid_size: int = 128):
+        super(MountainCarNoisyNetDQN, self).__init__()
+
+        self.net = nn.Sequential(
+            nn.Linear(obs_size, hid_size),
+            nn.ReLU(),
+            NoisyLinear(hid_size, n_actions),
+        )
+
+    def forward(self, x):
+        return self.net(x)
