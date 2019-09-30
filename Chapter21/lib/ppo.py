@@ -1,4 +1,5 @@
 import ptan
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -61,6 +62,8 @@ def calc_adv_ref(values, dones, rewards, gamma, gae_lambda):
             last_gae = delta + gamma * gae_lambda * last_gae
         adv.append(last_gae)
         ref.append(last_gae + val)
+    adv = list(reversed(adv))
+    ref = list(reversed(ref))
     return torch.FloatTensor(adv), torch.FloatTensor(ref)
 
 
@@ -73,11 +76,14 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
     trj_actions = []
     trj_rewards = []
     trj_dones = []
+    final_states = []
     for (exp,) in exp_source:
         trj_states.append(exp.state)
         trj_actions.append(exp.action)
         trj_rewards.append(exp.reward)
         trj_dones.append(exp.done)
+        if exp.done:
+            final_states.append(np.array(exp.state, copy=True))
         if len(trj_states) < trajectory_size:
             continue
         trj_states_t = torch.FloatTensor(trj_states).to(device)
@@ -98,16 +104,18 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
 
         # generate needed amount of batches
         for _ in range(ppo_epoches):
-            for batch_ofs in range(0, len(trj_states)-1, batch_size):
+            for batch_ofs in range(1, len(trj_states)-batch_size, batch_size):
                 yield (
                     trj_states_t[batch_ofs:batch_ofs + batch_size],
                     trj_actions_t[batch_ofs:batch_ofs + batch_size],
                     adv_t[batch_ofs:batch_ofs + batch_size],
                     ref_t[batch_ofs:batch_ofs + batch_size],
-                    old_logprob_t[batch_ofs:batch_ofs + batch_size]
+                    old_logprob_t[batch_ofs:batch_ofs + batch_size],
+                    final_states,
                 )
 
         trj_states.clear()
         trj_actions.clear()
         trj_rewards.clear()
         trj_dones.clear()
+        final_states.clear()
