@@ -102,10 +102,7 @@ if __name__ == "__main__":
     opt_critic = optim.Adam(net.critic.parameters(), lr=params.critic_lr)
 
     def process_batch(engine, batch):
-        states_t, actions_t, adv_t, ref_t, old_logprob_t, final_states = batch
-
-        final_vals_t = net.critic(torch.FloatTensor(final_states))
-        final_vals = torch.mean(final_vals_t).item()
+        states_t, actions_t, adv_t, ref_t, old_logprob_t, final_indices = batch
 
         opt_critic.zero_grad()
         value_t = net.critic(states_t)
@@ -136,7 +133,6 @@ if __name__ == "__main__":
             "adv": adv_t.mean().item(),
             "ref": ref_t.mean().item(),
             "loss_entropy": loss_entropy_t.item(),
-            "final_vals": final_vals,
         }
         return res
 

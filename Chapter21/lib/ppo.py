@@ -76,19 +76,24 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
     trj_actions = []
     trj_rewards = []
     trj_dones = []
-    final_states = []
+    # final_states = []
+    # final_indices = []
     for (exp,) in exp_source:
         trj_states.append(exp.state)
         trj_actions.append(exp.action)
         trj_rewards.append(exp.reward)
         trj_dones.append(exp.done)
-        if exp.done:
-            final_states.append(np.array(exp.state, copy=True))
+        # if exp.done:
+        #     final_states.append(np.array(exp.state, copy=True))
+        #     final_indices.append(len(trj_states)-1)
         if len(trj_states) < trajectory_size:
             continue
         trj_states_t = torch.FloatTensor(trj_states).to(device)
         trj_actions_t = torch.tensor(trj_actions).to(device)
         trj_values_t = critic_net(trj_states_t).squeeze()
+
+        # final_vals = critic_net(torch.FloatTensor(final_states))
+        # mean_final = final_vals.mean().item()
 
         adv_t, ref_t = calc_adv_ref(trj_values_t.data.cpu().numpy(),
                                     trj_dones, trj_rewards, gamma, gae_lambda)
@@ -102,20 +107,27 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
         # drop last entry in prob and trajectory
         old_logprob_t = old_logprob_t[:-1].detach()
 
+        indices = np.arange(0, len(trj_states)-1)
+
         # generate needed amount of batches
         for _ in range(ppo_epoches):
-            for batch_ofs in range(1, len(trj_states)-batch_size, batch_size):
+            np.random.shuffle(indices)
+            for batch_indices in np.split(indices, len(trj_states) // batch_size):
                 yield (
-                    trj_states_t[batch_ofs:batch_ofs + batch_size],
-                    trj_actions_t[batch_ofs:batch_ofs + batch_size],
-                    adv_t[batch_ofs:batch_ofs + batch_size],
-                    ref_t[batch_ofs:batch_ofs + batch_size],
-                    old_logprob_t[batch_ofs:batch_ofs + batch_size],
-                    final_states,
+                    trj_states_t[batch_indices],
+                    trj_actions_t[batch_indices],
+                    adv_t[batch_indices],
+                    ref_t[batch_indices],
+                    old_logprob_t[batch_indices],
                 )
 
+        # final_vals = critic_net(torch.FloatTensor(final_states))
+        # mean_final2 = final_vals.mean().item()
+        #
+        # print("Mean final %.3f -> %.3f" % (mean_final, mean_final2))
         trj_states.clear()
         trj_actions.clear()
         trj_rewards.clear()
         trj_dones.clear()
         final_states.clear()
+        final_indices.clear()
