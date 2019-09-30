@@ -4,15 +4,37 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Union
 
+from . import dqn_extra
+
 
 class MountainCarBasePPO(nn.Module):
-    def __init__(self, obs_size, n_actions, hid_size: int = 128):
+    def __init__(self, obs_size, n_actions, hid_size: int = 64):
         super(MountainCarBasePPO, self).__init__()
 
         self.actor = nn.Sequential(
             nn.Linear(obs_size, hid_size),
             nn.ReLU(),
             nn.Linear(hid_size, n_actions),
+        )
+
+        self.critic = nn.Sequential(
+            nn.Linear(obs_size, hid_size),
+            nn.ReLU(),
+            nn.Linear(hid_size, 1),
+        )
+
+    def forward(self, x):
+        return self.actor(x), self.critic(x)
+
+
+class MountainCarNoisyNetsPPO(nn.Module):
+    def __init__(self, obs_size, n_actions, hid_size: int = 128):
+        super(MountainCarNoisyNetsPPO, self).__init__()
+
+        self.actor = nn.Sequential(
+            nn.Linear(obs_size, hid_size),
+            nn.ReLU(),
+            dqn_extra.NoisyLinear(hid_size, n_actions),
         )
 
         self.critic = nn.Sequential(
