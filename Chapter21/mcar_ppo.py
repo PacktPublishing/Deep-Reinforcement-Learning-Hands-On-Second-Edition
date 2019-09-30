@@ -39,20 +39,20 @@ HYPERPARAMS = {
         'ppo_eps':          0.2,
         'batch_size':       32,
         'gae_lambda':       0.95,
-        'entropy_beta':     0.1,
+        'entropy_beta':     0.01,
     }),
     'noisynets': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
         'stop_reward':      -120.0,
         'run_name':         'noisynets',
-        'learning_rate':    1e-5,
+        'learning_rate':    1e-4,
         'gamma':            0.99,
         'ppo_trajectory':   2049,
         'ppo_epoches':      10,
         'ppo_eps':          0.2,
         'batch_size':       32,
         'gae_lambda':       0.95,
-        'entropy_beta':     0.1,
+        'entropy_beta':     0.01,
     }),
     'counts': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
@@ -65,7 +65,7 @@ HYPERPARAMS = {
         'ppo_eps':          0.2,
         'batch_size':       32,
         'gae_lambda':       0.95,
-        'entropy_beta':     0.1,
+        'entropy_beta':     0.01,
         'counts_reward_scale': 0.5,
     }),
 }
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     torch.manual_seed(common.SEED)
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--name", required=True, help="Run name")
-    parser.add_argument("-p", "--params", default='debug', help="Parameters, default=ppo")
+    parser.add_argument("-p", "--params", default='ppo', help="Parameters, default=ppo")
     args = parser.parse_args()
     params = HYPERPARAMS[args.params]
 
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     opt_critic = optim.Adam(net.critic.parameters(), lr=params.critic_lr)
 
     def process_batch(engine, batch):
-        states_t, actions_t, adv_t, ref_t, old_logprob_t, final_indices = batch
+        states_t, actions_t, adv_t, ref_t, old_logprob_t = batch
 
         opt_critic.zero_grad()
         value_t = net.critic(states_t)

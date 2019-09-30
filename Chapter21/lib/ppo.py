@@ -129,5 +129,5 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
         trj_actions.clear()
         trj_rewards.clear()
         trj_dones.clear()
-        final_states.clear()
-        final_indices.clear()
+        # final_states.clear()
+        # final_indices.clear()
