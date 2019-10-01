@@ -14,7 +14,7 @@ from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
 SEED = 123
 
-HYPERPARAMS = {
+HYPERPARAMS_DQN = {
     'pong': SimpleNamespace(**{
         'env_name':         "PongNoFrameskip-v4",
         'stop_reward':      18.0,
@@ -42,6 +42,71 @@ HYPERPARAMS = {
         'learning_rate':    0.0001,
         'gamma':            0.99,
         'batch_size':       32
+    }),
+}
+
+
+HYPERPARAMS_PPO = {
+    'debug': SimpleNamespace(**{
+        'env_name':         "CartPole-v0",
+        'stop_reward':      None,
+        'stop_test_reward': 190.0,
+        'run_name':         'debug',
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
+        'gamma':            0.9,
+        'ppo_trajectory':   2049,
+        'ppo_epoches':      10,
+        'ppo_eps':          0.2,
+        'batch_size':       32,
+        'gae_lambda':       0.95,
+        'entropy_beta':     0.1,
+    }),
+    'ppo': SimpleNamespace(**{
+        'env_name':         "MountainCar-v0",
+        'stop_reward':      None,
+        'stop_test_reward': -130.0,
+        'run_name':         'ppo',
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
+        'gamma':            0.99,
+        'ppo_trajectory':   2049,
+        'ppo_epoches':      10,
+        'ppo_eps':          0.2,
+        'batch_size':       32,
+        'gae_lambda':       0.95,
+        'entropy_beta':     0.1,
+    }),
+    'noisynets': SimpleNamespace(**{
+        'env_name':         "MountainCar-v0",
+        'stop_reward':      None,
+        'stop_test_reward': -130.0,
+        'run_name':         'noisynets',
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
+        'gamma':            0.99,
+        'ppo_trajectory':   2049,
+        'ppo_epoches':      10,
+        'ppo_eps':          0.2,
+        'batch_size':       32,
+        'gae_lambda':       0.95,
+        'entropy_beta':     0.1,
+    }),
+    'counts': SimpleNamespace(**{
+        'env_name':         "MountainCar-v0",
+        'stop_reward':      None,
+        'stop_test_reward': -130.0,
+        'run_name':         'counts',
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
+        'gamma':            0.99,
+        'ppo_trajectory':   2049,
+        'ppo_epoches':      10,
+        'ppo_eps':          0.2,
+        'batch_size':       32,
+        'gae_lambda':       0.95,
+        'entropy_beta':     0.1,
+        'counts_reward_scale': 0.5,
     }),
 }
 

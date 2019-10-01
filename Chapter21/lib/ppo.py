@@ -76,24 +76,30 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
     trj_actions = []
     trj_rewards = []
     trj_dones = []
-    # final_states = []
-    # final_indices = []
+    last_done_index = None
     for (exp,) in exp_source:
         trj_states.append(exp.state)
         trj_actions.append(exp.action)
         trj_rewards.append(exp.reward)
         trj_dones.append(exp.done)
-        # if exp.done:
-        #     final_states.append(np.array(exp.state, copy=True))
-        #     final_indices.append(len(trj_states)-1)
+        if exp.done:
+            last_done_index = len(trj_states)-1
         if len(trj_states) < trajectory_size:
             continue
+        # ensure that we have at least one full episode in the trajectory
+        if last_done_index is None or last_done_index == len(trj_states)-1:
+            continue
+
+        # trim the trajectory till the last done plus one step (which will be discarded).
+        # This increases convergence speed and stability
+        trj_states = trj_states[:last_done_index+2]
+        trj_actions = trj_actions[:last_done_index + 2]
+        trj_rewards = trj_rewards[:last_done_index + 2]
+        trj_dones = trj_dones[:last_done_index + 2]
+
         trj_states_t = torch.FloatTensor(trj_states).to(device)
         trj_actions_t = torch.tensor(trj_actions).to(device)
         trj_values_t = critic_net(trj_states_t).squeeze()
-
-        # final_vals = critic_net(torch.FloatTensor(final_states))
-        # mean_final = final_vals.mean().item()
 
         adv_t, ref_t = calc_adv_ref(trj_values_t.data.cpu().numpy(),
                                     trj_dones, trj_rewards, gamma, gae_lambda)
@@ -104,15 +110,18 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
         logpolicy_t = F.log_softmax(policy_t, dim=1)
         old_logprob_t = logpolicy_t.gather(1, trj_actions_t.unsqueeze(-1)).squeeze(-1)
         adv_t = (adv_t - torch.mean(adv_t)) / torch.std(adv_t)
-        # drop last entry in prob and trajectory
-        old_logprob_t = old_logprob_t[:-1].detach()
+        old_logprob_t = old_logprob_t.detach()
 
-        indices = np.arange(0, len(trj_states)-1)
+        # make our trajectory splittable on even batch chunks
+        trj_len = len(trj_states) - 1
+        trj_len -= trj_len % batch_size
+        trj_len += 1
+        indices = np.arange(0, trj_len-1)
 
         # generate needed amount of batches
         for _ in range(ppo_epoches):
             np.random.shuffle(indices)
-            for batch_indices in np.split(indices, len(trj_states) // batch_size):
+            for batch_indices in np.split(indices, trj_len // batch_size):
                 yield (
                     trj_states_t[batch_indices],
                     trj_actions_t[batch_indices],
@@ -121,13 +130,7 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
                     old_logprob_t[batch_indices],
                 )
 
-        # final_vals = critic_net(torch.FloatTensor(final_states))
-        # mean_final2 = final_vals.mean().item()
-        #
-        # print("Mean final %.3f -> %.3f" % (mean_final, mean_final2))
         trj_states.clear()
         trj_actions.clear()
         trj_rewards.clear()
         trj_dones.clear()
-        # final_states.clear()
-        # final_indices.clear()

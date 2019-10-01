@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import ptan
+import ptan.ignite as ptan_ignite
 import gym
 import argparse
 import random
+import warnings
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -12,84 +14,26 @@ from types import SimpleNamespace
 from lib import common, ppo, dqn_extra
 
 
-HYPERPARAMS = {
-    'debug': SimpleNamespace(**{
-        'env_name':         "CartPole-v0",
-        'stop_reward':      190.0,
-        'run_name':         'debug',
-        'actor_lr':         1e-4,
-        'critic_lr':        1e-4,
-        'gamma':            0.9,
-        'ppo_trajectory':   2049,
-        'ppo_epoches':      10,
-        'ppo_eps':          0.2,
-        'batch_size':       32,
-        'gae_lambda':       0.95,
-        'entropy_beta':     0.1,
-    }),
-    'ppo': SimpleNamespace(**{
-        'env_name':         "MountainCar-v0",
-        'stop_reward':      -120.0,
-        'run_name':         'ppo',
-        'actor_lr':         1e-4,
-        'critic_lr':        1e-4,
-        'gamma':            0.99,
-        'ppo_trajectory':   2049,
-        'ppo_epoches':      10,
-        'ppo_eps':          0.2,
-        'batch_size':       32,
-        'gae_lambda':       0.95,
-        'entropy_beta':     0.1,
-    }),
-    'noisynets': SimpleNamespace(**{
-        'env_name':         "MountainCar-v0",
-        'stop_reward':      -120.0,
-        'run_name':         'noisynets',
-        'actor_lr':         1e-4,
-        'critic_lr':        1e-4,
-        'gamma':            0.99,
-        'ppo_trajectory':   2049,
-        'ppo_epoches':      10,
-        'ppo_eps':          0.2,
-        'batch_size':       32,
-        'gae_lambda':       0.95,
-        'entropy_beta':     0.1,
-    }),
-    'counts': SimpleNamespace(**{
-        'env_name':         "MountainCar-v0",
-        'stop_reward':      -20.0,
-        'run_name':         'counts',
-        'actor_lr':         1e-4,
-        'critic_lr':        1e-4,
-        'gamma':            0.99,
-        'ppo_trajectory':   2049,
-        'ppo_epoches':      10,
-        'ppo_eps':          0.2,
-        'batch_size':       32,
-        'gae_lambda':       0.95,
-        'entropy_beta':     0.1,
-        'counts_reward_scale': 0.5,
-    }),
-}
-
-
 def counts_hash(obs):
     r = obs.tolist()
     return tuple(map(lambda v: round(v, 3), r))
 
 
 if __name__ == "__main__":
+    warnings.simplefilter("ignore", category=UserWarning)
     random.seed(common.SEED)
     torch.manual_seed(common.SEED)
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--name", required=True, help="Run name")
     parser.add_argument("-p", "--params", default='ppo', help="Parameters, default=ppo")
     args = parser.parse_args()
-    params = HYPERPARAMS[args.params]
+    params = common.HYPERPARAMS_PPO[args.params]
 
     env = gym.make(params.env_name)
+    test_env = gym.make(params.env_name)
     if args.params == 'counts':
-        env = dqn_extra.PseudoCountRewardWrapper(env, reward_scale=params.counts_reward_scale, hash_function=counts_hash)
+        env = dqn_extra.PseudoCountRewardWrapper(env, reward_scale=params.counts_reward_scale,
+                                                 hash_function=counts_hash)
     env.seed(common.SEED)
 
     if args.params == 'noisynets':
@@ -139,9 +83,28 @@ if __name__ == "__main__":
         return res
 
 
-
     engine = Engine(process_batch)
-    common.setup_ignite(engine, params, exp_source, args.name)
+    common.setup_ignite(engine, params, exp_source, args.name, extra_metrics=('test_reward', 'test_steps'))
+
+    @engine.on(ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED)
+    def test_network(engine):
+        obs = test_env.reset()
+        reward = 0.0
+        steps = 0
+
+        while True:
+            acts, _ = agent([obs])
+            obs, r, is_done, _ = test_env.step(acts[0])
+            reward += r
+            steps += 1
+            if is_done:
+                break
+        print("Test done: got %.3f reward after %d steps" % (
+            reward, steps
+        ))
+        engine.state.metrics['test_reward'] = reward
+        engine.state.metrics['test_steps'] = steps
+
     engine.run(ppo.batch_generator(exp_source, net.critic, net.actor, params.ppo_trajectory,
                                    params.ppo_epoches, params.batch_size,
                                    params.gamma, params.gae_lambda))
