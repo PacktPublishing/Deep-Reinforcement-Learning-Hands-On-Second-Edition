@@ -84,7 +84,8 @@ if __name__ == "__main__":
 
 
     engine = Engine(process_batch)
-    common.setup_ignite(engine, params, exp_source, args.name, extra_metrics=('test_reward', 'test_steps'))
+    common.setup_ignite(engine, params, exp_source, args.name, extra_metrics=(
+        'test_reward', 'avg_test_reward', 'test_steps'))
 
     @engine.on(ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED)
     def test_network(engine):
@@ -102,8 +103,17 @@ if __name__ == "__main__":
         print("Test done: got %.3f reward after %d steps" % (
             reward, steps
         ))
+        test_reward_avg = getattr(engine.state, "test_reward_avg", None)
+        if test_reward_avg is None:
+            test_reward_avg = reward
+        else:
+            test_reward_avg = test_reward_avg * 0.95 + 0.05 * reward
         engine.state.metrics['test_reward'] = reward
+        engine.state.metrics['avg_test_reward'] = test_reward_avg
         engine.state.metrics['test_steps'] = steps
+
+        if test_reward_avg > params.stop_test_reward:
+            engine.should_terminate = True
 
     engine.run(ppo.batch_generator(exp_source, net.critic, net.actor, params.ppo_trajectory,
                                    params.ppo_epoches, params.batch_size,
