@@ -4,7 +4,6 @@ import gym
 import argparse
 import random
 import torch
-import numpy as np
 import torch.optim as optim
 import torch.nn.functional as F
 
@@ -32,40 +31,43 @@ HYPERPARAMS = {
         'env_name':         "MountainCar-v0",
         'stop_reward':      -120.0,
         'run_name':         'ppo',
-        'learning_rate':    1e-4,
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
         'gamma':            0.99,
         'ppo_trajectory':   2049,
         'ppo_epoches':      10,
         'ppo_eps':          0.2,
         'batch_size':       32,
         'gae_lambda':       0.95,
-        'entropy_beta':     0.01,
+        'entropy_beta':     0.1,
     }),
     'noisynets': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
         'stop_reward':      -120.0,
         'run_name':         'noisynets',
-        'learning_rate':    1e-4,
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
         'gamma':            0.99,
         'ppo_trajectory':   2049,
         'ppo_epoches':      10,
         'ppo_eps':          0.2,
         'batch_size':       32,
         'gae_lambda':       0.95,
-        'entropy_beta':     0.01,
+        'entropy_beta':     0.1,
     }),
     'counts': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
         'stop_reward':      -20.0,
         'run_name':         'counts',
-        'learning_rate':    1e-4,
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
         'gamma':            0.99,
         'ppo_trajectory':   2049,
         'ppo_epoches':      10,
         'ppo_eps':          0.2,
         'batch_size':       32,
         'gae_lambda':       0.95,
-        'entropy_beta':     0.01,
+        'entropy_beta':     0.1,
         'counts_reward_scale': 0.5,
     }),
 }
