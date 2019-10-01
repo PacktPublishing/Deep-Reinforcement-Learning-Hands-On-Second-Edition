@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
     env = gym.make(params.env_name)
     if args.params == 'counts':
-        env = dqn_extra.PseudoCountRewardWrapper(env, reward_scale=params.counts_reward_scale, hash_function=counts_hash)
+        env = common.PseudoCountRewardWrapper(env, reward_scale=params.counts_reward_scale, hash_function=counts_hash)
     env.seed(common.SEED)
     if args.params.startswith("egreedy") or args.params == 'counts':
         net = dqn_extra.MountainCarBaseDQN(env.observation_space.shape[0], env.action_space.n)

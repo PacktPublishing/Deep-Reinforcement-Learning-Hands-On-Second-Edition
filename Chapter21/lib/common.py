@@ -1,3 +1,5 @@
+import gym
+import collections
 import numpy as np
 import torch
 import torch.nn as nn
@@ -107,6 +109,24 @@ HYPERPARAMS_PPO = {
         'gae_lambda':       0.95,
         'entropy_beta':     0.1,
         'counts_reward_scale': 0.5,
+    }),
+
+    'distill': SimpleNamespace(**{
+        'env_name': "MountainCar-v0",
+        'stop_reward': None,
+        'stop_test_reward': -130.0,
+        'run_name': 'distill',
+        'actor_lr': 1e-4,
+        'critic_lr': 1e-4,
+        'gamma': 0.99,
+        'ppo_trajectory': 2049,
+        'ppo_epoches': 10,
+        'ppo_eps': 0.2,
+        'batch_size': 32,
+        'gae_lambda': 0.95,
+        'entropy_beta': 0.1,
+        'reward_scale': 100.0,
+        'distill_lr': 1e-5,
     }),
 }
 
@@ -253,3 +273,38 @@ def setup_ignite(engine: Engine, params: SimpleNamespace,
         output_transform=lambda a: a)
     event = ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED
     tb.attach(engine, log_handler=handler, event_name=event)
+
+
+class PseudoCountRewardWrapper(gym.Wrapper):
+    def __init__(self, env, hash_function = lambda o: o, reward_scale: float = 1.0):
+        super(PseudoCountRewardWrapper, self).__init__(env)
+        self.hash_function = hash_function
+        self.reward_scale = reward_scale
+        self.counts = collections.Counter()
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        extra_reward = self._count_observation(obs)
+        return obs, reward + self.reward_scale * extra_reward, done, info
+
+    def _count_observation(self, obs) -> float:
+        """
+        Increments observation counter and returns pseudo-count reward
+        :param obs: observation
+        :return: extra reward
+        """
+        h = self.hash_function(obs)
+        self.counts[h] += 1
+        return np.sqrt(1/self.counts[h])
+
+
+class NetworkDistillationRewardWrapper(gym.Wrapper):
+    def __init__(self, env, reward_callable, reward_scale: float = 1.0):
+        super(NetworkDistillationRewardWrapper, self).__init__(env)
+        self.reward_scale = reward_scale
+        self.reward_callable = reward_callable
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        extra_reward = self.reward_callable(obs)
+        return obs, reward + self.reward_scale * extra_reward, done, info

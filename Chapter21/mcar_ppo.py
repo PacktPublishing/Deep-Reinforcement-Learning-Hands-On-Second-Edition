@@ -10,7 +10,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from ignite.engine import Engine
-from lib import common, ppo, dqn_extra
+from lib import common, ppo
 
 
 def counts_hash(obs):
@@ -31,8 +31,13 @@ if __name__ == "__main__":
     env = gym.make(params.env_name)
     test_env = gym.make(params.env_name)
     if args.params == 'counts':
-        env = dqn_extra.PseudoCountRewardWrapper(env, reward_scale=params.counts_reward_scale,
-                                                 hash_function=counts_hash)
+        env = common.PseudoCountRewardWrapper(env, reward_scale=params.counts_reward_scale,
+                                              hash_function=counts_hash)
+    net_distill = None
+    if args.params == 'distill':
+        net_distill = ppo.MountainCarNetDistillery(env.observation_space.shape[0])
+        env = common.NetworkDistillationRewardWrapper(env, net_distill.extra_reward, reward_scale=params.reward_scale)
+
     env.seed(common.SEED)
 
     if args.params == 'noisynets':
@@ -45,6 +50,8 @@ if __name__ == "__main__":
     exp_source = ptan.experience.ExperienceSource(env, agent, steps_count=1)
     opt_actor = optim.Adam(net.actor.parameters(), lr=params.actor_lr)
     opt_critic = optim.Adam(net.critic.parameters(), lr=params.critic_lr)
+    if net_distill is not None:
+        opt_distill = optim.Adam(net_distill.trn_net.parameters(), lr=params.distill_lr)
 
     def process_batch(engine, batch):
         states_t, actions_t, adv_t, ref_t, old_logprob_t = batch
@@ -79,6 +86,14 @@ if __name__ == "__main__":
             "ref": ref_t.mean().item(),
             "loss_entropy": loss_entropy_t.item(),
         }
+
+        if net_distill is not None:
+            opt_distill.zero_grad()
+            loss_distill_t = net_distill.loss(states_t)
+            loss_distill_t.backward()
+            opt_distill.step()
+            res['loss_distill'] = loss_distill_t.item()
+
         return res
 
 

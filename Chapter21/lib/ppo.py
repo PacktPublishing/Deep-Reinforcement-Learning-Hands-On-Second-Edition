@@ -134,3 +134,34 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
         trj_actions.clear()
         trj_rewards.clear()
         trj_dones.clear()
+
+
+class MountainCarNetDistillery(nn.Module):
+    def __init__(self, obs_size: int, hid_size: int = 128):
+        super(MountainCarNetDistillery, self).__init__()
+
+        self.ref_net = nn.Sequential(
+            nn.Linear(obs_size, hid_size),
+            nn.ReLU(),
+            nn.Linear(hid_size, hid_size),
+            nn.ReLU(),
+            nn.Linear(hid_size, 1),
+        )
+        self.ref_net.train(False)
+
+        self.trn_net = nn.Sequential(
+            nn.Linear(obs_size, 1),
+        )
+
+    def forward(self, x):
+        return self.ref_net(x), self.trn_net(x)
+
+    def extra_reward(self, obs):
+        r1, r2 = self.forward(torch.FloatTensor([obs]))
+        return (r1 - r2).abs().detach().numpy()[0][0]
+
+    def loss(self, obs_t):
+        r1_t, r2_t = self.forward(obs_t)
+        return F.mse_loss(r2_t, r1_t).mean()
+
+
