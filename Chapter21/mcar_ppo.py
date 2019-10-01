@@ -10,7 +10,6 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from ignite.engine import Engine
-from types import SimpleNamespace
 from lib import common, ppo, dqn_extra
 
 
@@ -89,6 +88,7 @@ if __name__ == "__main__":
 
     @engine.on(ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED)
     def test_network(engine):
+        net.actor.train(False)
         obs = test_env.reset()
         reward = 0.0
         steps = 0
@@ -100,20 +100,22 @@ if __name__ == "__main__":
             steps += 1
             if is_done:
                 break
-        print("Test done: got %.3f reward after %d steps" % (
-            reward, steps
-        ))
         test_reward_avg = getattr(engine.state, "test_reward_avg", None)
         if test_reward_avg is None:
             test_reward_avg = reward
         else:
             test_reward_avg = test_reward_avg * 0.95 + 0.05 * reward
+        print("Test done: got %.3f reward after %d steps, avg reward %.3f" % (
+            reward, steps, test_reward_avg
+        ))
         engine.state.metrics['test_reward'] = reward
         engine.state.metrics['avg_test_reward'] = test_reward_avg
         engine.state.metrics['test_steps'] = steps
 
         if test_reward_avg > params.stop_test_reward:
+            print("Reward boundary has crossed, stopping training. Contgrats!")
             engine.should_terminate = True
+        net.actor.train(True)
 
     engine.run(ppo.batch_generator(exp_source, net.critic, net.actor, params.ppo_trajectory,
                                    params.ppo_epoches, params.batch_size,

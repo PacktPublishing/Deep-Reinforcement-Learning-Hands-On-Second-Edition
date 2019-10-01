@@ -40,6 +40,8 @@ class NoisyLinear(nn.Linear):
         self.bias.data.uniform_(-std, std)
 
     def forward(self, input):
+        if not self.training:
+            return super(NoisyLinear, self).forward(input)
         self.epsilon_weight.normal_()
         bias = self.bias
         if bias is not None:
@@ -73,6 +75,9 @@ class NoisyFactorizedLinear(nn.Linear):
             self.sigma_bias = nn.Parameter(w)
 
     def forward(self, input):
+        if not self.training:
+            return super(NoisyFactorizedLinear, self).forward(input)
+
         self.epsilon_input.normal_()
         self.epsilon_output.normal_()
 
