@@ -7,7 +7,6 @@ import numpy as np
 import torch
 import torch.optim as optim
 
-import warnings
 from types import SimpleNamespace
 from ignite.engine import Engine
 
@@ -57,7 +56,6 @@ def evaluate_states(states, net, device, engine):
 
 
 if __name__ == "__main__":
-    warnings.simplefilter("ignore", category=UserWarning)
     random.seed(common.SEED)
     torch.manual_seed(common.SEED)
 

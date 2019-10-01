@@ -4,7 +4,6 @@ import ptan.ignite as ptan_ignite
 import gym
 import argparse
 import random
-import warnings
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -103,7 +102,6 @@ def counts_hash(obs):
 
 
 if __name__ == "__main__":
-    warnings.simplefilter("ignore", category=UserWarning)
     random.seed(common.SEED)
     torch.manual_seed(common.SEED)
     parser = argparse.ArgumentParser()
