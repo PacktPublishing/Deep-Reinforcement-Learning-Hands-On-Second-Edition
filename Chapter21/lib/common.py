@@ -65,7 +65,7 @@ HYPERPARAMS_PPO = {
     'ppo': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
         'stop_reward':      None,
-        'stop_test_reward': -110.0,
+        'stop_test_reward': -130.0,
         'run_name':         'ppo',
         'actor_lr':         1e-4,
         'critic_lr':        1e-4,
@@ -80,7 +80,7 @@ HYPERPARAMS_PPO = {
     'noisynets': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
         'stop_reward':      None,
-        'stop_test_reward': -110.0,
+        'stop_test_reward': -130.0,
         'run_name':         'noisynets',
         'actor_lr':         1e-4,
         'critic_lr':        1e-4,
@@ -95,7 +95,7 @@ HYPERPARAMS_PPO = {
     'counts': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
         'stop_reward':      None,
-        'stop_test_reward': -110.0,
+        'stop_test_reward': -130.0,
         'run_name':         'counts',
         'actor_lr':         1e-4,
         'critic_lr':        1e-4,

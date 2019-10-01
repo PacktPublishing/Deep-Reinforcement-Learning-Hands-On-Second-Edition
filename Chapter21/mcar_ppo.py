@@ -105,6 +105,7 @@ if __name__ == "__main__":
             test_reward_avg = reward
         else:
             test_reward_avg = test_reward_avg * 0.95 + 0.05 * reward
+        engine.state.test_reward_avg = test_reward_avg
         print("Test done: got %.3f reward after %d steps, avg reward %.3f" % (
             reward, steps, test_reward_avg
         ))
