@@ -7,15 +7,44 @@ import numpy as np
 import torch
 import torch.optim as optim
 
+from types import SimpleNamespace
 from ignite.engine import Engine
 
 from lib import common, dqn_extra, atari_wrappers
 
-NAME = "baseline"
 STATES_TO_EVALUATE = 1000
 EVAL_EVERY_FRAME = 10000
 N_STEPS = 4
 N_ENVS = 3
+
+
+HYPERPARAMS = {
+    'egreedy': SimpleNamespace(**{
+        'env_name':         "SeaquestNoFrameskip-v4",
+        'stop_reward':      10000.0,
+        'run_name':         'egreedy',
+        'replay_size':      1000000,
+        'replay_initial':   20000,
+        'target_net_sync':  5000,
+        'epsilon_frames':   10 ** 6,
+        'epsilon_start':    1.0,
+        'epsilon_final':    0.02,
+        'learning_rate':    0.0001,
+        'gamma':            0.99,
+        'batch_size':       32
+    }),
+    'noisynet': SimpleNamespace(**{
+        'env_name': "SeaquestNoFrameskip-v4",
+        'stop_reward': 10000.0,
+        'run_name': 'noisynet',
+        'replay_size': 1000000,
+        'replay_initial': 20000,
+        'target_net_sync': 5000,
+        'learning_rate': 0.0001,
+        'gamma': 0.99,
+        'batch_size': 32
+    }),
+}
 
 
 @torch.no_grad()
@@ -29,11 +58,14 @@ def evaluate_states(states, net, device, engine):
 if __name__ == "__main__":
     random.seed(common.SEED)
     torch.manual_seed(common.SEED)
-    params = common.HYPERPARAMS_DQN['seaquest']
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action="store_true", help="Enable cuda")
     parser.add_argument("-n", "--name", required=True, help="Run name")
+    parser.add_argument("-p", "--params", default='egreedy', choices=list(HYPERPARAMS.keys()),
+                        help="Parameters, default=egreedy")
     args = parser.parse_args()
+    params = HYPERPARAMS[args.params]
     device = torch.device("cuda" if args.cuda else "cpu")
 
     envs = []
@@ -43,11 +75,16 @@ if __name__ == "__main__":
         env.seed(common.SEED)
         envs.append(env)
 
-    net = dqn_extra.BaselineDQN(env.observation_space.shape, env.action_space.n).to(device)
+    epsilon_tracker = None
+    selector = ptan.actions.ArgmaxActionSelector()
+    if args.params == 'egreedy':
+        net = dqn_extra.BaselineDQN(env.observation_space.shape, env.action_space.n).to(device)
+        selector = ptan.actions.EpsilonGreedyActionSelector(epsilon=params.epsilon_start)
+        epsilon_tracker = common.EpsilonTracker(selector, params)
+    elif args.params == 'noisynet':
+        net = dqn_extra.NoisyDQN(env.observation_space.shape, env.action_space.n).to(device)
 
     tgt_net = ptan.agent.TargetNet(net)
-    selector = ptan.actions.EpsilonGreedyActionSelector(epsilon=params.epsilon_start)
-    epsilon_tracker = common.EpsilonTracker(selector, params)
     agent = ptan.agent.DQNAgent(net, selector, device=device)
 
     exp_source = ptan.experience.ExperienceSourceFirstLast(
@@ -62,7 +99,8 @@ if __name__ == "__main__":
                                              gamma=params.gamma**N_STEPS, device=device)
         loss_v.backward()
         optimizer.step()
-        epsilon_tracker.frame(engine.state.iteration)
+        if epsilon_tracker is not None:
+            epsilon_tracker.frame(engine.state.iteration)
         if engine.state.iteration % params.target_net_sync == 0:
             tgt_net.sync()
         if engine.state.iteration % EVAL_EVERY_FRAME == 0:
@@ -73,11 +111,13 @@ if __name__ == "__main__":
                 eval_states = np.array(eval_states, copy=False)
                 engine.state.eval_states = eval_states
             evaluate_states(eval_states, net, device, engine)
-        return {
+        res = {
             "loss": loss_v.item(),
-            "epsilon": selector.epsilon,
         }
+        if epsilon_tracker is not None:
+            res['epsilon'] = selector.epsilon
+        return res
 
     engine = Engine(process_batch)
-    common.setup_ignite(engine, params, exp_source, NAME + "_" + args.name, extra_metrics=('adv', 'val'))
+    common.setup_ignite(engine, params, exp_source, args.name, extra_metrics=('adv', 'val'))
     engine.run(common.batch_generator(buffer, params.replay_initial, params.batch_size))

@@ -84,7 +84,8 @@ if __name__ == "__main__":
     torch.manual_seed(common.SEED)
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--name", required=True, help="Run name")
-    parser.add_argument("-p", "--params", default='egreedy', help="Parameters, default=egreedy")
+    parser.add_argument("-p", "--params", default='egreedy', choices=list(HYPERPARAMS.keys()),
+                        help="Parameters, default=egreedy")
     args = parser.parse_args()
 
     params = HYPERPARAMS[args.params]

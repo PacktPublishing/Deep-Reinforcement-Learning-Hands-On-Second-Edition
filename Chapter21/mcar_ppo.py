@@ -10,7 +10,91 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from ignite.engine import Engine
+from types import SimpleNamespace
 from lib import common, ppo
+
+
+HYPERPARAMS = {
+    'debug': SimpleNamespace(**{
+        'env_name':         "CartPole-v0",
+        'stop_reward':      None,
+        'stop_test_reward': 190.0,
+        'run_name':         'debug',
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
+        'gamma':            0.9,
+        'ppo_trajectory':   2049,
+        'ppo_epoches':      10,
+        'ppo_eps':          0.2,
+        'batch_size':       32,
+        'gae_lambda':       0.95,
+        'entropy_beta':     0.1,
+    }),
+    'ppo': SimpleNamespace(**{
+        'env_name':         "MountainCar-v0",
+        'stop_reward':      None,
+        'stop_test_reward': -130.0,
+        'run_name':         'ppo',
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
+        'gamma':            0.99,
+        'ppo_trajectory':   2049,
+        'ppo_epoches':      10,
+        'ppo_eps':          0.2,
+        'batch_size':       32,
+        'gae_lambda':       0.95,
+        'entropy_beta':     0.1,
+    }),
+    'noisynets': SimpleNamespace(**{
+        'env_name':         "MountainCar-v0",
+        'stop_reward':      None,
+        'stop_test_reward': -130.0,
+        'run_name':         'noisynets',
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
+        'gamma':            0.99,
+        'ppo_trajectory':   2049,
+        'ppo_epoches':      10,
+        'ppo_eps':          0.2,
+        'batch_size':       32,
+        'gae_lambda':       0.95,
+        'entropy_beta':     0.1,
+    }),
+    'counts': SimpleNamespace(**{
+        'env_name':         "MountainCar-v0",
+        'stop_reward':      None,
+        'stop_test_reward': -130.0,
+        'run_name':         'counts',
+        'actor_lr':         1e-4,
+        'critic_lr':        1e-4,
+        'gamma':            0.99,
+        'ppo_trajectory':   2049,
+        'ppo_epoches':      10,
+        'ppo_eps':          0.2,
+        'batch_size':       32,
+        'gae_lambda':       0.95,
+        'entropy_beta':     0.1,
+        'counts_reward_scale': 0.5,
+    }),
+
+    'distill': SimpleNamespace(**{
+        'env_name': "MountainCar-v0",
+        'stop_reward': None,
+        'stop_test_reward': -130.0,
+        'run_name': 'distill',
+        'actor_lr': 1e-4,
+        'critic_lr': 1e-4,
+        'gamma': 0.99,
+        'ppo_trajectory': 2049,
+        'ppo_epoches': 10,
+        'ppo_eps': 0.2,
+        'batch_size': 32,
+        'gae_lambda': 0.95,
+        'entropy_beta': 0.1,
+        'reward_scale': 100.0,
+        'distill_lr': 1e-5,
+    }),
+}
 
 
 def counts_hash(obs):
@@ -24,9 +108,10 @@ if __name__ == "__main__":
     torch.manual_seed(common.SEED)
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--name", required=True, help="Run name")
-    parser.add_argument("-p", "--params", default='ppo', help="Parameters, default=ppo")
+    parser.add_argument("-p", "--params", default='ppo', choices=list(HYPERPARAMS.keys()),
+                        help="Parameters, default=ppo")
     args = parser.parse_args()
-    params = common.HYPERPARAMS_PPO[args.params]
+    params = HYPERPARAMS[args.params]
 
     env = gym.make(params.env_name)
     test_env = gym.make(params.env_name)
