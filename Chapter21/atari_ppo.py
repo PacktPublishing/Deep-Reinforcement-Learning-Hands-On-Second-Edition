@@ -4,38 +4,26 @@ import ptan.ignite as ptan_ignite
 import gym
 import argparse
 import random
+import itertools
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
 from ignite.engine import Engine
 from types import SimpleNamespace
-from lib import common, ppo
+from lib import common, ppo, atari_wrappers
+
+N_STEPS = 4
+N_ENVS = 3
 
 
 HYPERPARAMS = {
-    'debug': SimpleNamespace(**{
-        'env_name':         "CartPole-v0",
-        'stop_reward':      None,
-        'stop_test_reward': 190.0,
-        'run_name':         'debug',
-        'actor_lr':         1e-4,
-        'critic_lr':        1e-4,
-        'gamma':            0.9,
-        'ppo_trajectory':   2049,
-        'ppo_epoches':      10,
-        'ppo_eps':          0.2,
-        'batch_size':       32,
-        'gae_lambda':       0.95,
-        'entropy_beta':     0.1,
-    }),
     'ppo': SimpleNamespace(**{
-        'env_name':         "MountainCar-v0",
+        'env_name':         "SeaquestNoFrameskip-v4",
         'stop_reward':      None,
-        'stop_test_reward': -130.0,
+        'stop_test_reward': 10000,
         'run_name':         'ppo',
-        'actor_lr':         1e-4,
-        'critic_lr':        1e-4,
+        'lr':               1e-4,
         'gamma':            0.99,
         'ppo_trajectory':   2049,
         'ppo_epoches':      10,
@@ -44,13 +32,12 @@ HYPERPARAMS = {
         'gae_lambda':       0.95,
         'entropy_beta':     0.1,
     }),
-    'noisynets': SimpleNamespace(**{
-        'env_name':         "MountainCar-v0",
+    'noisynet': SimpleNamespace(**{
+        'env_name':         "SeaquestNoFrameskip-v4",
         'stop_reward':      None,
-        'stop_test_reward': -130.0,
-        'run_name':         'noisynets',
-        'actor_lr':         1e-4,
-        'critic_lr':        1e-4,
+        'stop_test_reward': 10000,
+        'run_name':         'noisynet',
+        'lr':               1e-4,
         'gamma':            0.99,
         'ppo_trajectory':   2049,
         'ppo_epoches':      10,
@@ -58,95 +45,49 @@ HYPERPARAMS = {
         'batch_size':       32,
         'gae_lambda':       0.95,
         'entropy_beta':     0.1,
-    }),
-    'counts': SimpleNamespace(**{
-        'env_name':         "MountainCar-v0",
-        'stop_reward':      None,
-        'stop_test_reward': -130.0,
-        'run_name':         'counts',
-        'actor_lr':         1e-4,
-        'critic_lr':        1e-4,
-        'gamma':            0.99,
-        'ppo_trajectory':   2049,
-        'ppo_epoches':      10,
-        'ppo_eps':          0.2,
-        'batch_size':       32,
-        'gae_lambda':       0.95,
-        'entropy_beta':     0.1,
-        'counts_reward_scale': 0.5,
-    }),
-
-    'distill': SimpleNamespace(**{
-        'env_name': "MountainCar-v0",
-        'stop_reward': None,
-        'stop_test_reward': -130.0,
-        'run_name': 'distill',
-        'actor_lr': 1e-4,
-        'critic_lr': 1e-4,
-        'gamma': 0.99,
-        'ppo_trajectory': 2049,
-        'ppo_epoches': 10,
-        'ppo_eps': 0.2,
-        'batch_size': 32,
-        'gae_lambda': 0.95,
-        'entropy_beta': 0.1,
-        'reward_scale': 100.0,
-        'distill_lr': 1e-5,
     }),
 }
-
-
-def counts_hash(obs):
-    r = obs.tolist()
-    return tuple(map(lambda v: round(v, 3), r))
 
 
 if __name__ == "__main__":
     random.seed(common.SEED)
     torch.manual_seed(common.SEED)
     parser = argparse.ArgumentParser()
+    parser.add_argument("--cuda", default=False, action="store_true", help="Enable cuda")
     parser.add_argument("-n", "--name", required=True, help="Run name")
     parser.add_argument("-p", "--params", default='ppo', choices=list(HYPERPARAMS.keys()),
                         help="Parameters, default=ppo")
     args = parser.parse_args()
     params = HYPERPARAMS[args.params]
+    device = torch.device("cuda" if args.cuda else "cpu")
 
-    env = gym.make(params.env_name)
-    test_env = gym.make(params.env_name)
-    if args.params == 'counts':
-        env = common.PseudoCountRewardWrapper(env, reward_scale=params.counts_reward_scale,
-                                              hash_function=counts_hash)
-    net_distill = None
-    if args.params == 'distill':
-        net_distill = ppo.MountainCarNetDistillery(env.observation_space.shape[0])
-        env = common.NetworkDistillationRewardWrapper(env, net_distill.extra_reward, reward_scale=params.reward_scale)
+    envs = []
+    for _ in range(N_ENVS):
+        env = atari_wrappers.make_atari(params.env_name, skip_noop=True, skip_maxskip=True)
+        env = atari_wrappers.wrap_deepmind(env, pytorch_img=True, frame_stack=True)
+        envs.append(env)
 
-    env.seed(common.SEED)
+    test_env = atari_wrappers.make_atari(params.env_name, skip_noop=True, skip_maxskip=True)
+    test_env = atari_wrappers.wrap_deepmind(test_env, pytorch_img=True, frame_stack=True)
 
     if args.params == 'noisynets':
-        net = ppo.MountainCarNoisyNetsPPO(env.observation_space.shape[0], env.action_space.n)
+        net = ppo.AtariNoisyNetsPPO(env.observation_space.shape, env.action_space.n).to(device)
     else:
-        net = ppo.MountainCarBasePPO(env.observation_space.shape[0], env.action_space.n)
+        net = ppo.AtariBasePPO(env.observation_space.shape, env.action_space.n).to(device)
     print(net)
 
-    agent = ptan.agent.PolicyAgent(net.actor, apply_softmax=True, preprocessor=ptan.agent.float32_preprocessor)
+    agent = ptan.agent.PolicyAgent(lambda x: net(x)[0], apply_softmax=True, preprocessor=ptan.agent.float32_preprocessor,
+                                   device=device)
     exp_source = ptan.experience.ExperienceSource(env, agent, steps_count=1)
-    opt_actor = optim.Adam(net.actor.parameters(), lr=params.actor_lr)
-    opt_critic = optim.Adam(net.critic.parameters(), lr=params.critic_lr)
-    if net_distill is not None:
-        opt_distill = optim.Adam(net_distill.trn_net.parameters(), lr=params.distill_lr)
+    optimizer = optim.Adam(net.parameters(), lr=params.lr)
 
     def process_batch(engine, batch):
         states_t, actions_t, adv_t, ref_t, old_logprob_t = batch
 
-        opt_critic.zero_grad()
-        value_t = net.critic(states_t)
+        optimizer.zero_grad()
+        policy_t, value_t = net(states_t)
         loss_value_t = F.mse_loss(value_t.squeeze(-1), ref_t)
-        loss_value_t.backward()
-        opt_critic.step()
 
-        opt_actor.zero_grad()
-        policy_t = net.actor(states_t)
         logpolicy_t = F.log_softmax(policy_t, dim=1)
 
         prob_t = F.softmax(policy_t, dim=1)
@@ -157,25 +98,19 @@ if __name__ == "__main__":
         surr_obj_t = adv_t * ratio_t
         clipped_surr_t = adv_t * torch.clamp(ratio_t, 1.0 - params.ppo_eps, 1.0 + params.ppo_eps)
         loss_policy_t = -torch.min(surr_obj_t, clipped_surr_t).mean()
-        loss_polent_t = params.entropy_beta * loss_entropy_t + loss_policy_t
-        loss_polent_t.backward()
-        opt_actor.step()
+
+        loss_t = params.entropy_beta * loss_entropy_t + loss_policy_t + loss_value_t
+        loss_t.backward()
+        optimizer.step()
 
         res = {
-            "loss": loss_value_t.item() + loss_polent_t.item(),
+            "loss": loss_t.item(),
             "loss_value": loss_value_t.item(),
             "loss_policy": loss_policy_t.item(),
             "adv": adv_t.mean().item(),
             "ref": ref_t.mean().item(),
             "loss_entropy": loss_entropy_t.item(),
         }
-
-        if net_distill is not None:
-            opt_distill.zero_grad()
-            loss_distill_t = net_distill.loss(states_t)
-            loss_distill_t.backward()
-            opt_distill.step()
-            res['loss_distill'] = loss_distill_t.item()
 
         return res
 
@@ -218,4 +153,4 @@ if __name__ == "__main__":
 
     engine.run(ppo.batch_generator(exp_source, net, params.ppo_trajectory,
                                    params.ppo_epoches, params.batch_size,
-                                   params.gamma, params.gae_lambda))
+                                   params.gamma, params.gae_lambda, device=device))

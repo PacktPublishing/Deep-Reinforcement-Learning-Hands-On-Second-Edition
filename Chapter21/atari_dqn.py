@@ -71,8 +71,7 @@ if __name__ == "__main__":
     envs = []
     for _ in range(N_ENVS):
         env = atari_wrappers.make_atari(params.env_name, skip_noop=True, skip_maxskip=True)
-        env = atari_wrappers.wrap_deepmind(env, pytorch_img=True, frame_stack=True, frame_stack_count=2)
-        env.seed(common.SEED)
+        env = atari_wrappers.wrap_deepmind(env, pytorch_img=True, frame_stack=True)
         envs.append(env)
 
     epsilon_tracker = None

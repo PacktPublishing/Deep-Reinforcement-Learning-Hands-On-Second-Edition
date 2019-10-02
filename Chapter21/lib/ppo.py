@@ -68,7 +68,7 @@ def calc_adv_ref(values, dones, rewards, gamma, gae_lambda):
 
 
 def batch_generator(exp_source: ptan.experience.ExperienceSource,
-                    critic_net: nn.Module, actor_net: nn.Module,
+                    net: nn.Module,
                     trajectory_size: int, ppo_epoches: int,
                     batch_size: int, gamma: float, gae_lambda: float,
                     device: Union[torch.device, str] = "cpu"):
@@ -99,14 +99,14 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
 
         trj_states_t = torch.FloatTensor(trj_states).to(device)
         trj_actions_t = torch.tensor(trj_actions).to(device)
-        trj_values_t = critic_net(trj_states_t).squeeze()
+        policy_t, trj_values_t = net(trj_states_t)
+        trj_values_t = trj_values_t.squeeze()
 
         adv_t, ref_t = calc_adv_ref(trj_values_t.data.cpu().numpy(),
                                     trj_dones, trj_rewards, gamma, gae_lambda)
         adv_t = adv_t.to(device)
         ref_t = ref_t.to(device)
 
-        policy_t = actor_net(trj_states_t)
         logpolicy_t = F.log_softmax(policy_t, dim=1)
         old_logprob_t = logpolicy_t.gather(1, trj_actions_t.unsqueeze(-1)).squeeze(-1)
         adv_t = (adv_t - torch.mean(adv_t)) / torch.std(adv_t)
@@ -165,3 +165,79 @@ class MountainCarNetDistillery(nn.Module):
         return F.mse_loss(r2_t, r1_t).mean()
 
 
+class AtariBasePPO(nn.Module):
+    """
+    Dueling net
+    """
+    def __init__(self, input_shape, n_actions):
+        super(AtariBasePPO, self).__init__()
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(input_shape[0], 32,
+                      kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU()
+        )
+
+        conv_out_size = self._get_conv_out(input_shape)
+        self.actor = nn.Sequential(
+            nn.Linear(conv_out_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, n_actions)
+        )
+        self.critic = nn.Sequential(
+            nn.Linear(conv_out_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1)
+        )
+
+    def _get_conv_out(self, shape):
+        o = self.conv(torch.zeros(1, *shape))
+        return int(np.prod(o.size()))
+
+    def forward(self, x):
+        fx = x.float() / 256
+        conv_out = self.conv(fx).view(fx.size()[0], -1)
+        return self.actor(conv_out), self.critic(conv_out)
+
+
+class AtariNoisyNetsPPO(nn.Module):
+    """
+    Dueling net
+    """
+    def __init__(self, input_shape, n_actions):
+        super(AtariNoisyNetsPPO, self).__init__()
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(input_shape[0], 32,
+                      kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU()
+        )
+
+        conv_out_size = self._get_conv_out(input_shape)
+        self.actor = nn.Sequential(
+            nn.Linear(conv_out_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, n_actions)
+        )
+        self.critic = nn.Sequential(
+            nn.Linear(conv_out_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1)
+        )
+
+    def _get_conv_out(self, shape):
+        o = self.conv(torch.zeros(1, *shape))
+        return int(np.prod(o.size()))
+
+    def forward(self, x):
+        fx = x.float() / 256
+        conv_out = self.conv(fx).view(fx.size()[0], -1)
+        return self.actor(conv_out), self.critic(conv_out)
