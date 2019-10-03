@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Union
+from typing import Union, Callable, Optional
 
 from . import dqn_extra
 
@@ -71,7 +71,8 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
                     net: nn.Module,
                     trajectory_size: int, ppo_epoches: int,
                     batch_size: int, gamma: float, gae_lambda: float,
-                    device: Union[torch.device, str] = "cpu", trim_trajectory: bool = True):
+                    device: Union[torch.device, str] = "cpu", trim_trajectory: bool = True,
+                    new_batch_callable: Optional[Callable] = None):
     trj_states = []
     trj_actions = []
     trj_rewards = []
@@ -89,6 +90,9 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
         # ensure that we have at least one full episode in the trajectory
         if last_done_index is None or last_done_index == len(trj_states)-1:
             continue
+
+        if new_batch_callable is not None:
+            new_batch_callable()
 
         # trim the trajectory till the last done plus one step (which will be discarded).
         # This increases convergence speed and stability
@@ -223,10 +227,15 @@ class AtariNoisyNetsPPO(nn.Module):
         )
 
         conv_out_size = self._get_conv_out(input_shape)
-        self.actor = nn.Sequential(
+        self.noisy_layers = [
             dqn_extra.NoisyLinear(conv_out_size, 256),
+            dqn_extra.NoisyLinear(256, n_actions),
+        ]
+
+        self.actor = nn.Sequential(
+            self.noisy_layers[0],
             nn.ReLU(),
-            dqn_extra.NoisyLinear(256, n_actions)
+            self.noisy_layers[1],
         )
         self.critic = nn.Sequential(
             nn.Linear(conv_out_size, 256),
@@ -242,3 +251,7 @@ class AtariNoisyNetsPPO(nn.Module):
         fx = x.float() / 256
         conv_out = self.conv(fx).view(fx.size()[0], -1)
         return self.actor(conv_out), self.critic(conv_out)
+
+    def sample_noise(self):
+        for l in self.noisy_layers:
+            l.sample_noise()

@@ -151,6 +151,12 @@ if __name__ == "__main__":
             engine.should_terminate = True
         net.actor.train(True)
 
+    def new_ppo_batch():
+        # In noisy networks we need to reset the noise
+        if args.params == 'noisynet':
+            net.sample_noise()
+
     engine.run(ppo.batch_generator(exp_source, net, params.ppo_trajectory,
                                    params.ppo_epoches, params.batch_size,
-                                   params.gamma, params.gae_lambda, device=device, trim_trajectory=False))
+                                   params.gamma, params.gae_lambda, device=device,
+                                   trim_trajectory=False, new_batch_callable=new_ppo_batch))

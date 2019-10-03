@@ -40,15 +40,18 @@ class NoisyLinear(nn.Linear):
     def forward(self, input):
         if not self.training:
             return super(NoisyLinear, self).forward(input)
-        self.epsilon_weight.normal_()
         bias = self.bias
         if bias is not None:
-            self.epsilon_bias.normal_()
             bias = bias + self.sigma_bias * \
                    self.epsilon_bias.data
         v = self.sigma_weight * self.epsilon_weight.data + \
             self.weight
         return F.linear(input, v, bias)
+
+    def sample_noise(self):
+        self.epsilon_weight.normal_()
+        if self.bias is not None:
+            self.epsilon_bias.normal_()
 
 
 class NoisyFactorizedLinear(nn.Linear):
