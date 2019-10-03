@@ -15,7 +15,7 @@ from lib import common, ppo, atari_wrappers
 
 N_STEPS = 4
 N_ENVS = 3
-
+NAME = "atari"
 
 HYPERPARAMS = {
     'ppo': SimpleNamespace(**{
@@ -23,12 +23,12 @@ HYPERPARAMS = {
         'stop_reward':      None,
         'stop_test_reward': 10000,
         'run_name':         'ppo',
-        'lr':               1e-4,
+        'lr':               5e-5,
         'gamma':            0.99,
-        'ppo_trajectory':   2049,
-        'ppo_epoches':      10,
+        'ppo_trajectory':   256,
+        'ppo_epoches':      4,
         'ppo_eps':          0.2,
-        'batch_size':       32,
+        'batch_size':       64,
         'gae_lambda':       0.95,
         'entropy_beta':     0.1,
     }),
@@ -37,12 +37,12 @@ HYPERPARAMS = {
         'stop_reward':      None,
         'stop_test_reward': 10000,
         'run_name':         'noisynet',
-        'lr':               1e-4,
+        'lr':               5e-5,
         'gamma':            0.99,
-        'ppo_trajectory':   2049,
-        'ppo_epoches':      10,
+        'ppo_trajectory':   256,
+        'ppo_epoches':      4,
         'ppo_eps':          0.2,
-        'batch_size':       32,
+        'batch_size':       64,
         'gae_lambda':       0.95,
         'entropy_beta':     0.1,
     }),
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     test_env = atari_wrappers.make_atari(params.env_name, skip_noop=True, skip_maxskip=True)
     test_env = atari_wrappers.wrap_deepmind(test_env, pytorch_img=True, frame_stack=True)
 
-    if args.params == 'noisynets':
+    if args.params == 'noisynet':
         net = ppo.AtariNoisyNetsPPO(env.observation_space.shape, env.action_space.n).to(device)
     else:
         net = ppo.AtariBasePPO(env.observation_space.shape, env.action_space.n).to(device)
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
 
     engine = Engine(process_batch)
-    common.setup_ignite(engine, params, exp_source, args.name, extra_metrics=(
+    common.setup_ignite(engine, params, exp_source, NAME + "_" + args.name, extra_metrics=(
         'test_reward', 'avg_test_reward', 'test_steps'))
 
     @engine.on(ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED)
@@ -153,4 +153,4 @@ if __name__ == "__main__":
 
     engine.run(ppo.batch_generator(exp_source, net, params.ppo_trajectory,
                                    params.ppo_epoches, params.batch_size,
-                                   params.gamma, params.gae_lambda, device=device))
+                                   params.gamma, params.gae_lambda, device=device, trim_trajectory=False))

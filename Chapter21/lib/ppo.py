@@ -71,7 +71,7 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
                     net: nn.Module,
                     trajectory_size: int, ppo_epoches: int,
                     batch_size: int, gamma: float, gae_lambda: float,
-                    device: Union[torch.device, str] = "cpu"):
+                    device: Union[torch.device, str] = "cpu", trim_trajectory: bool = True):
     trj_states = []
     trj_actions = []
     trj_rewards = []
@@ -92,10 +92,11 @@ def batch_generator(exp_source: ptan.experience.ExperienceSource,
 
         # trim the trajectory till the last done plus one step (which will be discarded).
         # This increases convergence speed and stability
-        trj_states = trj_states[:last_done_index+2]
-        trj_actions = trj_actions[:last_done_index + 2]
-        trj_rewards = trj_rewards[:last_done_index + 2]
-        trj_dones = trj_dones[:last_done_index + 2]
+        if trim_trajectory:
+            trj_states = trj_states[:last_done_index+2]
+            trj_actions = trj_actions[:last_done_index + 2]
+            trj_rewards = trj_rewards[:last_done_index + 2]
+            trj_dones = trj_dones[:last_done_index + 2]
 
         trj_states_t = torch.FloatTensor(trj_states).to(device)
         trj_actions_t = torch.tensor(trj_actions).to(device)
@@ -223,9 +224,9 @@ class AtariNoisyNetsPPO(nn.Module):
 
         conv_out_size = self._get_conv_out(input_shape)
         self.actor = nn.Sequential(
-            nn.Linear(conv_out_size, 256),
+            dqn_extra.NoisyLinear(conv_out_size, 256),
             nn.ReLU(),
-            nn.Linear(256, n_actions)
+            dqn_extra.NoisyLinear(256, n_actions)
         )
         self.critic = nn.Sequential(
             nn.Linear(conv_out_size, 256),
