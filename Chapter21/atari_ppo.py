@@ -59,7 +59,8 @@ HYPERPARAMS = {
         'batch_size':       64,
         'gae_lambda':       0.95,
         'entropy_beta':     0.1,
-        "lr_distill":       1e-5,
+        'lr_distill':       1e-5,
+        'distill_scale':    100.0,
     }),
 }
 
@@ -105,7 +106,9 @@ if __name__ == "__main__":
         env = atari_wrappers.make_atari(params.env_name, skip_noop=True, skip_maxskip=True)
         env = atari_wrappers.wrap_deepmind(env, pytorch_img=True, frame_stack=True)
         if do_distill:
-            env = common.NetworkDistillationRewardWrapper(env, reward_callable=get_distill_reward, sum_rewards=False)
+            env = common.NetworkDistillationRewardWrapper(
+                env, reward_callable=get_distill_reward,
+                reward_scale=params.distill_scale, sum_rewards=False)
         envs.append(env)
 
     agent = ptan.agent.PolicyAgent(lambda x: net(x)[0], apply_softmax=True, preprocessor=ptan.agent.float32_preprocessor,
