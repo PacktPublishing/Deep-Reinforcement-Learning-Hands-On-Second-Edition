@@ -32,10 +32,14 @@ class MountainCarNoisyNetsPPO(nn.Module):
     def __init__(self, obs_size, n_actions, hid_size: int = 128):
         super(MountainCarNoisyNetsPPO, self).__init__()
 
+        self.noisy_layers = [
+            dqn_extra.NoisyLinear(hid_size, n_actions)
+        ]
+
         self.actor = nn.Sequential(
             nn.Linear(obs_size, hid_size),
             nn.ReLU(),
-            dqn_extra.NoisyLinear(hid_size, n_actions),
+            self.noisy_layers[0],
         )
 
         self.critic = nn.Sequential(
@@ -46,6 +50,10 @@ class MountainCarNoisyNetsPPO(nn.Module):
 
     def forward(self, x):
         return self.actor(x), self.critic(x)
+
+    def sample_noise(self):
+        for l in self.noisy_layers:
+            l.sample_noise()
 
 
 def calc_adv_ref(values, dones, rewards, gamma, gae_lambda):

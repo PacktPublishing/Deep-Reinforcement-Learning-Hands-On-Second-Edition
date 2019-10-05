@@ -44,11 +44,11 @@ HYPERPARAMS = {
         'gae_lambda':       0.95,
         'entropy_beta':     0.1,
     }),
-    'noisynets': SimpleNamespace(**{
+    'noisynet': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
         'stop_reward':      None,
         'stop_test_reward': -130.0,
-        'run_name':         'noisynets',
+        'run_name':         'noisynet',
         'actor_lr':         1e-4,
         'critic_lr':        1e-4,
         'gamma':            0.99,
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     env.seed(common.SEED)
 
-    if args.params == 'noisynets':
+    if args.params == 'noisynet':
         net = ppo.MountainCarNoisyNetsPPO(env.observation_space.shape[0], env.action_space.n)
     else:
         net = ppo.MountainCarBasePPO(env.observation_space.shape[0], env.action_space.n)
@@ -216,6 +216,11 @@ if __name__ == "__main__":
             engine.should_terminate = True
         net.actor.train(True)
 
+    def new_ppo_batch():
+        # In noisy networks we need to reset the noise
+        if args.params == 'noisynet':
+            net.sample_noise()
+
     engine.run(ppo.batch_generator(exp_source, net, params.ppo_trajectory,
                                    params.ppo_epoches, params.batch_size,
-                                   params.gamma, params.gae_lambda))
+                                   params.gamma, params.gae_lambda, new_batch_callable=new_ppo_batch))
