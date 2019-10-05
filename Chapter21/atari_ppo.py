@@ -46,6 +46,21 @@ HYPERPARAMS = {
         'gae_lambda':       0.95,
         'entropy_beta':     0.1,
     }),
+    'distill': SimpleNamespace(**{
+        'env_name':         "SeaquestNoFrameskip-v4",
+        'stop_reward':      None,
+        'stop_test_reward': 10000,
+        'run_name':         'distill',
+        'lr':               5e-5,
+        'gamma':            0.99,
+        'ppo_trajectory':   256,
+        'ppo_epoches':      4,
+        'ppo_eps':          0.2,
+        'batch_size':       64,
+        'gae_lambda':       0.95,
+        'entropy_beta':     0.1,
+        "lr_distill":       1e-5,
+    }),
 }
 
 
@@ -61,32 +76,64 @@ if __name__ == "__main__":
     params = HYPERPARAMS[args.params]
     device = torch.device("cuda" if args.cuda else "cpu")
 
+    test_env = atari_wrappers.make_atari(params.env_name, skip_noop=True, skip_maxskip=True)
+    test_env = atari_wrappers.wrap_deepmind(test_env, pytorch_img=True, frame_stack=True)
+
+    do_distill = False
+    dist_ref = dist_trn = None
+
+    if args.params == 'noisynet':
+        net = ppo.AtariNoisyNetsPPO(test_env.observation_space.shape, test_env.action_space.n).to(device)
+    elif args.params == 'distill':
+        net = ppo.AtariDistillPPO(test_env.observation_space.shape, test_env.action_space.n).to(device)
+        do_distill = True
+        dist_ref = ppo.AtariDistill(test_env.observation_space.shape)
+        dist_ref.train(False)
+        dist_trn = ppo.AtariDistill(test_env.observation_space.shape)
+    else:
+        net = ppo.AtariBasePPO(test_env.observation_space.shape, test_env.action_space.n).to(device)
+    print(net)
+
+    @torch.no_grad()
+    def get_distill_reward(obs) -> float:
+        obs_t = torch.FloatTensor([obs]).to(device)
+        res = (dist_ref(obs_t) - dist_trn(obs_t)).abs()[0][0].item()
+        return res
+
     envs = []
     for _ in range(N_ENVS):
         env = atari_wrappers.make_atari(params.env_name, skip_noop=True, skip_maxskip=True)
         env = atari_wrappers.wrap_deepmind(env, pytorch_img=True, frame_stack=True)
+        if do_distill:
+            env = common.NetworkDistillationRewardWrapper(env, reward_callable=get_distill_reward, sum_rewards=False)
         envs.append(env)
-
-    test_env = atari_wrappers.make_atari(params.env_name, skip_noop=True, skip_maxskip=True)
-    test_env = atari_wrappers.wrap_deepmind(test_env, pytorch_img=True, frame_stack=True)
-
-    if args.params == 'noisynet':
-        net = ppo.AtariNoisyNetsPPO(env.observation_space.shape, env.action_space.n).to(device)
-    else:
-        net = ppo.AtariBasePPO(env.observation_space.shape, env.action_space.n).to(device)
-    print(net)
 
     agent = ptan.agent.PolicyAgent(lambda x: net(x)[0], apply_softmax=True, preprocessor=ptan.agent.float32_preprocessor,
                                    device=device)
     exp_source = ptan.experience.ExperienceSource(env, agent, steps_count=1)
     optimizer = optim.Adam(net.parameters(), lr=params.lr)
+    if do_distill:
+        distill_optimizer = optim.Adam(dist_trn.parameters(), lr=params.lr_distill)
 
     def process_batch(engine, batch):
-        states_t, actions_t, adv_t, ref_t, old_logprob_t = batch
-
         optimizer.zero_grad()
-        policy_t, value_t = net(states_t)
-        loss_value_t = F.mse_loss(value_t.squeeze(-1), ref_t)
+        res = {}
+
+        if do_distill:
+            states_t, actions_t, adv_t, ref_ext_t, ref_int_t, old_logprob_t = batch
+            policy_t, value_ext_t, value_int_t = net(states_t)
+            loss_value_ext_t = F.mse_loss(value_ext_t.squeeze(-1), ref_ext_t)
+            loss_value_int_t = F.mse_loss(value_int_t.squeeze(-1), ref_int_t)
+            res['loss_value_ext'] = loss_value_ext_t.item()
+            res['loss_value_int'] = loss_value_int_t.item()
+            loss_value_t = loss_value_ext_t + loss_value_int_t
+            res['ref_ext'] = ref_ext_t.mean().item()
+            res['ref_int'] = ref_int_t.mean().item()
+        else:
+            states_t, actions_t, adv_t, ref_t, old_logprob_t = batch
+            policy_t, value_t = net(states_t)
+            loss_value_t = F.mse_loss(value_t.squeeze(-1), ref_t)
+            res['ref'] = ref_t.mean().item()
 
         logpolicy_t = F.log_softmax(policy_t, dim=1)
 
@@ -103,14 +150,23 @@ if __name__ == "__main__":
         loss_t.backward()
         optimizer.step()
 
-        res = {
+        # perform distillation training
+        if do_distill:
+            distill_optimizer.zero_grad()
+            trn_out_t = dist_trn(states_t)
+            ref_out_t = dist_ref(states_t)
+            dist_loss_t = F.mse_loss(ref_out_t, trn_out_t)
+            dist_loss_t.backward()
+            distill_optimizer.step()
+            res["loss_distill"] = dist_loss_t.item()
+
+        res.update({
             "loss": loss_t.item(),
             "loss_value": loss_value_t.item(),
             "loss_policy": loss_policy_t.item(),
             "adv": adv_t.mean().item(),
-            "ref": ref_t.mean().item(),
             "loss_entropy": loss_entropy_t.item(),
-        }
+        })
 
         return res
 
@@ -156,7 +212,13 @@ if __name__ == "__main__":
         if args.params == 'noisynet':
             net.sample_noise()
 
-    engine.run(ppo.batch_generator(exp_source, net, params.ppo_trajectory,
-                                   params.ppo_epoches, params.batch_size,
-                                   params.gamma, params.gae_lambda, device=device,
-                                   trim_trajectory=False, new_batch_callable=new_ppo_batch))
+    if do_distill:
+        engine.run(ppo.batch_generator_distill(exp_source, net, params.ppo_trajectory,
+                                               params.ppo_epoches, params.batch_size,
+                                               params.gamma, params.gae_lambda, device=device,
+                                               trim_trajectory=False, new_batch_callable=new_ppo_batch))
+    else:
+        engine.run(ppo.batch_generator(exp_source, net, params.ppo_trajectory,
+                                       params.ppo_epoches, params.batch_size,
+                                       params.gamma, params.gae_lambda, device=device,
+                                       trim_trajectory=False, new_batch_callable=new_ppo_batch))

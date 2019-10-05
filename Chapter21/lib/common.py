@@ -188,12 +188,17 @@ class PseudoCountRewardWrapper(gym.Wrapper):
 
 
 class NetworkDistillationRewardWrapper(gym.Wrapper):
-    def __init__(self, env, reward_callable, reward_scale: float = 1.0):
+    def __init__(self, env, reward_callable, reward_scale: float = 1.0, sum_rewards: bool = True):
         super(NetworkDistillationRewardWrapper, self).__init__(env)
         self.reward_scale = reward_scale
         self.reward_callable = reward_callable
+        self.sum_rewards = sum_rewards
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         extra_reward = self.reward_callable(obs)
-        return obs, reward + self.reward_scale * extra_reward, done, info
+        if self.sum_rewards:
+            res_rewards = reward + self.reward_scale * extra_reward
+        else:
+            res_rewards = np.array([reward, extra_reward * self.reward_scale])
+        return obs, res_rewards, done, info
