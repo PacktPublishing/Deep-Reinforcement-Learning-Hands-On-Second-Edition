@@ -87,9 +87,9 @@ if __name__ == "__main__":
     elif args.params == 'distill':
         net = ppo.AtariDistillPPO(test_env.observation_space.shape, test_env.action_space.n).to(device)
         do_distill = True
-        dist_ref = ppo.AtariDistill(test_env.observation_space.shape)
+        dist_ref = ppo.AtariDistill(test_env.observation_space.shape).to(device)
         dist_ref.train(False)
-        dist_trn = ppo.AtariDistill(test_env.observation_space.shape)
+        dist_trn = ppo.AtariDistill(test_env.observation_space.shape).to(device)
     else:
         net = ppo.AtariBasePPO(test_env.observation_space.shape, test_env.action_space.n).to(device)
     print(net)
@@ -110,7 +110,11 @@ if __name__ == "__main__":
 
     agent = ptan.agent.PolicyAgent(lambda x: net(x)[0], apply_softmax=True, preprocessor=ptan.agent.float32_preprocessor,
                                    device=device)
-    exp_source = ptan.experience.ExperienceSource(env, agent, steps_count=1)
+    if do_distill:
+        exp_source = common.DistillExperienceSource(env, agent, steps_count=1)
+    else:
+        exp_source = ptan.experience.ExperienceSource(env, agent, steps_count=1)
+
     optimizer = optim.Adam(net.parameters(), lr=params.lr)
     if do_distill:
         distill_optimizer = optim.Adam(dist_trn.parameters(), lr=params.lr_distill)

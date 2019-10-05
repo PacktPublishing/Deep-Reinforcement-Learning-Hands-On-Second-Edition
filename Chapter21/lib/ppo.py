@@ -436,3 +436,5 @@ class AtariDistillPPO(nn.Module):
         fx = x.float() / 256
         conv_out = self.conv(fx).view(fx.size()[0], -1)
         return self.actor(conv_out), self.critic_ext(conv_out), self.critic_int(conv_out)
+
+

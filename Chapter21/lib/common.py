@@ -125,7 +125,7 @@ def setup_ignite(engine: Engine, params: SimpleNamespace,
     @engine.on(ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
     def episode_completed(trainer: Engine):
         passed = trainer.state.metrics.get('time_passed', 0)
-        print("Episode %d: reward=%.0f, steps=%s, "
+        print("Episode %d: reward=%.2f, steps=%s, "
               "speed=%.1f f/s, elapsed=%s" % (
             trainer.state.episode, trainer.state.episode_reward,
             trainer.state.episode_steps,
@@ -202,3 +202,14 @@ class NetworkDistillationRewardWrapper(gym.Wrapper):
         else:
             res_rewards = np.array([reward, extra_reward * self.reward_scale])
         return obs, res_rewards, done, info
+
+
+class DistillExperienceSource(ptan.experience.ExperienceSource):
+    """
+    Tweaked version of experience source which sums up reward
+    """
+    def pop_rewards_steps(self):
+        res = []
+        for rewards, steps in super(DistillExperienceSource, self).pop_rewards_steps():
+            res.append((rewards.sum(), steps))
+        return res
