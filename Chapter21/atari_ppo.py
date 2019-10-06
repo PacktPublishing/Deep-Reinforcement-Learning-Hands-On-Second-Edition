@@ -4,7 +4,6 @@ import ptan.ignite as ptan_ignite
 import gym
 import argparse
 import random
-import itertools
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -13,8 +12,7 @@ from ignite.engine import Engine
 from types import SimpleNamespace
 from lib import common, ppo, atari_wrappers
 
-N_STEPS = 4
-N_ENVS = 3
+N_ENVS = 1
 NAME = "atari"
 
 HYPERPARAMS = {
@@ -182,7 +180,7 @@ if __name__ == "__main__":
     common.setup_ignite(engine, params, exp_source, NAME + "_" + args.name, extra_metrics=(
         'test_reward', 'avg_test_reward', 'test_steps'))
 
-    @engine.on(ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED)
+    @engine.on(ptan_ignite.PeriodEvents.ITERS_10000_COMPLETED)
     def test_network(engine):
         net.actor.train(False)
         obs = test_env.reset()
