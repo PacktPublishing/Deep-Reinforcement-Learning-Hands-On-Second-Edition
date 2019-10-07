@@ -165,7 +165,8 @@ def setup_ignite(engine: Engine, params: SimpleNamespace,
 
 
 class PseudoCountRewardWrapper(gym.Wrapper):
-    def __init__(self, env, hash_function = lambda o: o, reward_scale: float = 1.0):
+    def __init__(self, env, hash_function = lambda o: o,
+                 reward_scale: float = 1.0):
         super(PseudoCountRewardWrapper, self).__init__(env)
         self.hash_function = hash_function
         self.reward_scale = reward_scale
@@ -174,7 +175,8 @@ class PseudoCountRewardWrapper(gym.Wrapper):
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         extra_reward = self._count_observation(obs)
-        return obs, reward + self.reward_scale * extra_reward, done, info
+        return obs, reward + self.reward_scale * extra_reward, \
+               done, info
 
     def _count_observation(self, obs) -> float:
         """
