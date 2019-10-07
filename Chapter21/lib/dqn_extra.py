@@ -205,11 +205,19 @@ class MountainCarNoisyNetDQN(nn.Module):
     def __init__(self, obs_size, n_actions, hid_size: int = 128):
         super(MountainCarNoisyNetDQN, self).__init__()
 
+        self.noisy_layers = [
+            NoisyLinear(hid_size, n_actions),
+        ]
+
         self.net = nn.Sequential(
             nn.Linear(obs_size, hid_size),
             nn.ReLU(),
-            NoisyLinear(hid_size, n_actions),
+            self.noisy_layers[0]
         )
 
     def forward(self, x):
         return self.net(x)
+
+    def sample_noise(self):
+        for l in self.noisy_layers:
+            l.sample_noise()

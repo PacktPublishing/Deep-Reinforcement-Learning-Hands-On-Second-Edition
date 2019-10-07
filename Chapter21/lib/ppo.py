@@ -1,4 +1,5 @@
 import ptan
+import time
 import numpy as np
 import torch
 import torch.nn as nn
@@ -164,6 +165,7 @@ def batch_generator_distill(exp_source: ptan.experience.ExperienceSource,
     trj_rewards_int = []
     trj_dones = []
     last_done_index = None
+    trj_time = time.time()
     for (exp,) in exp_source:
         trj_states.append(exp.state)
         trj_actions.append(exp.action)
@@ -179,9 +181,12 @@ def batch_generator_distill(exp_source: ptan.experience.ExperienceSource,
         if last_done_index is None or last_done_index == len(trj_states)-1:
             continue
 
+        trj_dt = time.time() - trj_time
+
         if new_batch_callable is not None:
             new_batch_callable()
 
+        prep_ts = time.time()
         # trim the trajectory till the last done plus one step (which will be discarded).
         # This increases convergence speed and stability
         if trim_trajectory:
@@ -222,6 +227,7 @@ def batch_generator_distill(exp_source: ptan.experience.ExperienceSource,
         trj_len -= trj_len % batch_size
         trj_len += 1
         indices = np.arange(0, trj_len-1)
+        prep_dt = time.time() - prep_ts
 
         # generate needed amount of batches
         for _ in range(ppo_epoches):
@@ -234,6 +240,8 @@ def batch_generator_distill(exp_source: ptan.experience.ExperienceSource,
                     ref_ext_t[batch_indices],
                     ref_int_t[batch_indices],
                     old_logprob_t[batch_indices],
+                    trj_dt,
+                    prep_dt,
                 )
 
         trj_states.clear()
@@ -242,6 +250,7 @@ def batch_generator_distill(exp_source: ptan.experience.ExperienceSource,
         trj_rewards_ext.clear()
         trj_rewards_int.clear()
         trj_dones.clear()
+        trj_time = time.time()
 
 
 class MountainCarNetDistillery(nn.Module):

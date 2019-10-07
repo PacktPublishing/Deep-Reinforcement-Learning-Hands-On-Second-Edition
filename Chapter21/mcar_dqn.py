@@ -16,7 +16,8 @@ from lib import common, dqn_extra
 HYPERPARAMS = {
     'egreedy': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
-        'stop_reward':      -120.0,
+        'stop_reward':      None,
+        'stop_test_reward': -130.0,
         'run_name':         'egreedy',
         'replay_size':      100000,
         'replay_initial':   100,
@@ -31,7 +32,8 @@ HYPERPARAMS = {
     }),
     'egreedy-long': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
-        'stop_reward':      -120.0,
+        'stop_reward':      None,
+        'stop_test_reward': -130.0,
         'run_name':         'egreedy-long',
         'replay_size':      100000,
         'replay_initial':   1000,
@@ -46,7 +48,8 @@ HYPERPARAMS = {
     }),
     'noisynet': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
-        'stop_reward':      -120.0,
+        'stop_reward':      None,
+        'stop_test_reward': -130.0,
         'run_name':         'noisynet',
         'replay_size':      100000,
         'replay_initial':   1000,
@@ -58,7 +61,8 @@ HYPERPARAMS = {
     }),
     'counts': SimpleNamespace(**{
         'env_name':         "MountainCar-v0",
-        'stop_reward':      -120.0,
+        'stop_reward':      None,
+        'stop_test_reward': -130.0,
         'run_name':         'counts',
         'replay_size':      100000,
         'replay_initial':   1000,
@@ -91,6 +95,7 @@ if __name__ == "__main__":
     params = HYPERPARAMS[args.params]
 
     env = gym.make(params.env_name)
+    test_env = gym.make(params.env_name)
     if args.params == 'counts':
         env = common.PseudoCountRewardWrapper(env, reward_scale=params.counts_reward_scale, hash_function=counts_hash)
     env.seed(common.SEED)
@@ -140,10 +145,14 @@ if __name__ == "__main__":
         if args.params.startswith("egreedy"):
             epsilon_tracker.frame(engine.state.iteration - epsilon_tracker_frame)
             res['epsilon'] = selector.epsilon
+        # reset noise every training step, this is fine in off-policy method
+        if args.params == 'noisynet':
+            net.sample_noise()
         return res
 
     engine = Engine(process_batch)
-    common.setup_ignite(engine, params, exp_source, args.name)
+    common.setup_ignite(engine, params, exp_source, args.name, extra_metrics=(
+        'test_reward', 'avg_test_reward', 'test_steps'))
 
     @engine.on(ptan_ignite.EpisodeEvents.EPISODE_COMPLETED)
     def check_reward_trigger(trainer: Engine):
@@ -155,5 +164,37 @@ if __name__ == "__main__":
             training_enabled = True
             epsilon_tracker_frame = trainer.state.iteration
             print("Epsilon decay triggered!")
+
+    @engine.on(ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED)
+    def test_network(engine):
+        net.train(False)
+        obs = test_env.reset()
+        reward = 0.0
+        steps = 0
+
+        while True:
+            acts, _ = agent([obs])
+            obs, r, is_done, _ = test_env.step(acts[0])
+            reward += r
+            steps += 1
+            if is_done:
+                break
+        test_reward_avg = getattr(engine.state, "test_reward_avg", None)
+        if test_reward_avg is None:
+            test_reward_avg = reward
+        else:
+            test_reward_avg = test_reward_avg * 0.95 + 0.05 * reward
+        engine.state.test_reward_avg = test_reward_avg
+        print("Test done: got %.3f reward after %d steps, avg reward %.3f" % (
+            reward, steps, test_reward_avg
+        ))
+        engine.state.metrics['test_reward'] = reward
+        engine.state.metrics['avg_test_reward'] = test_reward_avg
+        engine.state.metrics['test_steps'] = steps
+
+        if test_reward_avg > params.stop_test_reward:
+            print("Reward boundary has crossed, stopping training. Contgrats!")
+            engine.should_terminate = True
+        net.train(True)
 
     engine.run(common.batch_generator(buffer, params.replay_initial, params.batch_size))

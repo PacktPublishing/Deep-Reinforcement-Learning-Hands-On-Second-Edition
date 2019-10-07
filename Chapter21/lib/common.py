@@ -160,7 +160,7 @@ def setup_ignite(engine: Engine, params: SimpleNamespace,
     handler = tb_logger.OutputHandler(
         tag="train", metric_names=metrics,
         output_transform=lambda a: a)
-    event = ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED
+    event = ptan_ignite.PeriodEvents.ITERS_100_COMPLETED
     tb.attach(engine, log_handler=handler, event_name=event)
 
 

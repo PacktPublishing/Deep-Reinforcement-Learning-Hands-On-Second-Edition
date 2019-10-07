@@ -4,6 +4,7 @@ import ptan.ignite as ptan_ignite
 import gym
 import argparse
 import random
+import time
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -121,11 +122,12 @@ if __name__ == "__main__":
         distill_optimizer = optim.Adam(dist_trn.parameters(), lr=params.lr_distill)
 
     def process_batch(engine, batch):
+        start_ts = time.time()
         optimizer.zero_grad()
         res = {}
 
         if do_distill:
-            states_t, actions_t, adv_t, ref_ext_t, ref_int_t, old_logprob_t = batch
+            states_t, actions_t, adv_t, ref_ext_t, ref_int_t, old_logprob_t, trj_dt, prep_dt = batch
             policy_t, value_ext_t, value_int_t = net(states_t)
             loss_value_ext_t = F.mse_loss(value_ext_t.squeeze(-1), ref_ext_t)
             loss_value_int_t = F.mse_loss(value_int_t.squeeze(-1), ref_int_t)
@@ -171,6 +173,9 @@ if __name__ == "__main__":
             "loss_policy": loss_policy_t.item(),
             "adv": adv_t.mean().item(),
             "loss_entropy": loss_entropy_t.item(),
+            "time_batch": time.time() - start_ts,
+            "time_traj": trj_dt,
+            "time_prep": prep_dt,
         })
 
         return res
