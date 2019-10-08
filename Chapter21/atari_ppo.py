@@ -43,7 +43,7 @@ HYPERPARAMS = {
         'ppo_eps':          0.2,
         'batch_size':       64,
         'gae_lambda':       0.95,
-        'entropy_beta':     0.1,
+        'entropy_beta':     0.01,
     }),
     'distill': SimpleNamespace(**{
         'env_name':         "SeaquestNoFrameskip-v4",
@@ -58,8 +58,8 @@ HYPERPARAMS = {
         'batch_size':       64,
         'gae_lambda':       0.95,
         'entropy_beta':     0.1,
-        'lr_distill':       1e-5,
-        'distill_scale':    500.0,
+        'lr_distill':       1e-6,
+        'distill_scale':    100.0,
     }),
 }
 
@@ -128,6 +128,8 @@ if __name__ == "__main__":
 
         if do_distill:
             states_t, actions_t, adv_t, ref_ext_t, ref_int_t, old_logprob_t, trj_dt, prep_dt = batch
+            res['time_traj'] = trj_dt
+            res['time_prep'] = prep_dt
             policy_t, value_ext_t, value_int_t = net(states_t)
             loss_value_ext_t = F.mse_loss(value_ext_t.squeeze(-1), ref_ext_t)
             loss_value_int_t = F.mse_loss(value_int_t.squeeze(-1), ref_int_t)
@@ -174,8 +176,6 @@ if __name__ == "__main__":
             "adv": adv_t.mean().item(),
             "loss_entropy": loss_entropy_t.item(),
             "time_batch": time.time() - start_ts,
-            "time_traj": trj_dt,
-            "time_prep": prep_dt,
         })
 
         return res
