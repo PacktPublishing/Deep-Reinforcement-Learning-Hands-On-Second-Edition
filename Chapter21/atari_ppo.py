@@ -13,7 +13,7 @@ from ignite.engine import Engine
 from types import SimpleNamespace
 from lib import common, ppo, atari_wrappers
 
-N_ENVS = 1
+N_ENVS = 8
 NAME = "atari"
 
 HYPERPARAMS = {
