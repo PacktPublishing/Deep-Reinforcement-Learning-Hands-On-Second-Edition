@@ -41,4 +41,7 @@ if __name__ == "__main__":
         env.set_action(tiger_handle, tiger_act)
         env.render()
         done = env.step()
+        t_reward = env.get_reward(tiger_handle)
+        d_reward = env.get_reward(deer_handle)
+        print("Rewards: deer %s, tiger %s" % (d_reward, t_reward))
         step_idx += 1
