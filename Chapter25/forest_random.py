@@ -27,6 +27,13 @@ if __name__ == "__main__":
     env.add_agents(deer_handle, method="random", n=5)
     env.add_agents(tiger_handle, method="random", n=2)
 
+    v = env.get_view_space(tiger_handle)
+    r = env.get_feature_space(tiger_handle)
+    vv = env.get_view_space(deer_handle)
+    rr = env.get_feature_space(deer_handle)
+
+    env.clear_dead()
+
     done = False
     step_idx = 0
     while not done:
