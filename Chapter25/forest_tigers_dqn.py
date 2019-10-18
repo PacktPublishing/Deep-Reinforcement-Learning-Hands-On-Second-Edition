@@ -63,7 +63,7 @@ def test_model(net: model.DQNModel, device: torch.device) -> Tuple[float, float]
         if dones[0]:
             break
 
-    return rewards / steps / COUNT_TIGERS, steps / COUNT_TIGERS
+    return rewards / COUNT_TIGERS, steps / COUNT_TIGERS
 
 
 if __name__ == "__main__":
