@@ -28,9 +28,9 @@ PARAMS = SimpleNamespace(**{
     'replay_size':      100000,
     'replay_initial':   100,
     'target_net_sync':  1000,
-    'epsilon_frames':   10**5,
-    'epsilon_start':    1.0,
-    'epsilon_final':    0.02,
+    # 'epsilon_frames':   10**5,
+    # 'epsilon_start':    1.0,
+    # 'epsilon_final':    0.02,
     'learning_rate':    1e-4,
     'gamma':            0.99,
     'batch_size':       32
@@ -95,9 +95,10 @@ if __name__ == "__main__":
     tgt_net = ptan.agent.TargetNet(net)
     print(net)
 
-    action_selector = ptan.actions.EpsilonGreedyActionSelector(
-        epsilon=PARAMS.epsilon_start)
-    epsilon_tracker = common.EpsilonTracker(action_selector, PARAMS)
+    # action_selector = ptan.actions.EpsilonGreedyActionSelector(
+    #     epsilon=PARAMS.epsilon_start)
+    # epsilon_tracker = common.EpsilonTracker(action_selector, PARAMS)
+    action_selector = ptan.actions.ArgmaxActionSelector()
     preproc = model.MAgentPreprocessor(device)
     agent = ptan.agent.DQNAgent(net, action_selector, device, preprocessor=preproc)
     exp_source = ptan.experience.ExperienceSourceFirstLast(
@@ -113,12 +114,12 @@ if __name__ == "__main__":
             gamma=PARAMS.gamma, device=device)
         loss_v.backward()
         optimizer.step()
-        epsilon_tracker.frame(engine.state.iteration)
+        # epsilon_tracker.frame(engine.state.iteration)
         if engine.state.iteration % PARAMS.target_net_sync == 0:
             tgt_net.sync()
         return {
             "loss": loss_v.item(),
-            "epsilon": action_selector.epsilon,
+#            "epsilon": action_selector.epsilon,
         }
 
     engine = Engine(process_batch)
