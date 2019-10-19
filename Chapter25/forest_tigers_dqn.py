@@ -25,10 +25,10 @@ WALLS_DENSITY = 0.04
 PARAMS = SimpleNamespace(**{
     'run_name':         'tigers',
     'stop_reward':      None,
-    'replay_size':      100000,
+    'replay_size':      1000000,
     'replay_initial':   100,
     'target_net_sync':  1000,
-    'epsilon_frames':   10**5,
+    'epsilon_frames':   5*10**5,
     'epsilon_start':    1.0,
     'epsilon_final':    0.02,
     'learning_rate':    1e-4,
