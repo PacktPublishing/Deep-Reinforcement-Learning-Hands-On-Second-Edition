@@ -37,8 +37,8 @@ PARAMS = SimpleNamespace(**{
 })
 
 
-def test_model(net: model.DQNModel, device: torch.device) -> Tuple[float, float]:
-    test_env = magent.GridWorld("forest", map_size=MAP_SIZE)
+def test_model(net: model.DQNModel, device: torch.device, mode: str) -> Tuple[float, float]:
+    test_env = magent.GridWorld(mode, map_size=MAP_SIZE)
     deer_handle, tiger_handle = test_env.get_handles()
 
     def reset_env():
@@ -70,13 +70,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action='store_true', help="Enable CUDA computations")
     parser.add_argument("-n", "--name", required=True, help="Run name")
+    parser.add_argument("--mode", default='forest', choices=['forest', 'double_attack'],
+                        help="GridWorld mode, could be 'forest' or 'double_attack', default='forest'")
     args = parser.parse_args()
 
     device = torch.device("cuda" if args.cuda else "cpu")
     saves_path = os.path.join("saves", args.name)
     os.makedirs(saves_path, exist_ok=True)
 
-    m_env = magent.GridWorld("forest", map_size=MAP_SIZE)
+    m_env = magent.GridWorld(args.mode, map_size=MAP_SIZE)
 
     # two groups of animal
     deer_handle, tiger_handle = m_env.get_handles()
@@ -129,7 +131,7 @@ if __name__ == "__main__":
     @engine.on(ptan_ignite.PeriodEvents.ITERS_10000_COMPLETED)
     def test_network(engine):
         net.train(False)
-        reward, steps = test_model(net, device)
+        reward, steps = test_model(net, device, args.mode)
         net.train(True)
         engine.state.metrics['test_reward'] = reward
         engine.state.metrics['test_steps'] = steps

@@ -24,10 +24,12 @@ if __name__ == "__main__":
                         help="Count of tigers, default=10")
     parser.add_argument("--deers", type=int, default=50,
                         help="Count of deers, default=50")
+    parser.add_argument("--mode", default='forest', choices=['forest', 'double_attack'],
+                        help="GridWorld mode, could be 'forest' or 'double_attack', default='forest'")
 
     args = parser.parse_args()
 
-    env = magent.GridWorld("forest", map_size=args.map_size)
+    env = magent.GridWorld(args.mode, map_size=args.map_size)
     env.set_render_dir(args.render)
     deer_handle, tiger_handle = env.get_handles()
 
