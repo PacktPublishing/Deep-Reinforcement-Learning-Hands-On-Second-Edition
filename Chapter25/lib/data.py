@@ -9,7 +9,7 @@ from gym.vector.vector_env import VectorEnv
 
 class MAgentEnv(VectorEnv):
     def __init__(self, env: magent.GridWorld, handle,
-                 reset_env_func: Callable[[], None]):
+                 reset_env_func: Callable[[], None], is_slave: bool = False):
         reset_env_func()
         action_space = self.handle_action_space(env, handle)
         observation_space = self.handle_obs_space(env, handle)
@@ -22,6 +22,7 @@ class MAgentEnv(VectorEnv):
         self._env = env
         self._handle = handle
         self._reset_env_func = reset_env_func
+        self._is_slave = is_slave
 
     @classmethod
     def handle_action_space(cls, env: magent.GridWorld, handle) -> gym.Space:
@@ -41,7 +42,8 @@ class MAgentEnv(VectorEnv):
         return spaces.Tuple((view_space, extra_space))
 
     def reset_wait(self):
-        self._reset_env_func()
+        if not self._is_slave:
+            self._reset_env_func()
         return self.handle_observations(self._env, self._handle)
 
     @classmethod
@@ -65,8 +67,11 @@ class MAgentEnv(VectorEnv):
         self._env.set_action(self._handle, np.array(actions, dtype=np.int32))
 
     def step_wait(self):
-        done = self._env.step()
-        self._env.clear_dead()
+        if not self._is_slave:
+            done = self._env.step()
+            self._env.clear_dead()
+        else:
+            done = False
 
         obs = self.handle_observations(self._env, self._handle)
         r = self._env.get_reward(self._handle).tolist()
@@ -117,76 +122,84 @@ def config_double_attack(map_size):
     return cfg
 
 
-class MAgentGroupsEnv(VectorEnv):
-    def __init__(self, env: magent.GridWorld, handles: List[Any],
-                 reset_env_func: Callable[[], None]):
-        reset_env_func()
-        action_spaces = [
-            MAgentEnv.handle_action_space(env, h)
-            for h in handles
-        ]
-
-        observation_spaces = [
-            MAgentEnv.handle_obs_space(env, h)
-            for h in handles
-        ]
-
-        counts = [
-            env.get_num(h)
-            for h in handles
-        ]
-
-        super(MAgentGroupsEnv, self).__init__(
-            1, spaces.Tuple(observation_spaces),
-            spaces.Tuple(action_spaces)
-        )
-        self.action_space = self.single_action_space
-        self._env = env
-        self._handles = handles
-        self._reset_env_func = reset_env_func
-        self._counts = counts
-
-    def reset_wait(self):
-        self._reset_env_func()
-        return tuple([
-            MAgentEnv.handle_observations(self._env, h)
-            for h in self._handles
-        ])
-
-    def step_async(self, actions: Tuple):
-        # for h, acts in zip(self._handles, actions):
-        #     self._env.set_action(h, np.array(acts, dtype=np.int32))
-        pass
-
-    def step_wait(self):
-        done = self._env.step()
-        self._env.clear_dead()
-
-        obs = [
-            MAgentEnv.handle_observations(self._env, h)
-            for h in self._handles
-        ]
-        rewards = [
-            self._env.get_reward(h)
-            for h in self._handles
-        ]
-        for r in rewards:
-            if not r.tolist():
-                done = True
-                break
-        dones = [
-            [done] * len(r)
-            for r in rewards
-        ]
-
-        if done:
-            obs = self.reset()
-            dones = [
-                [done] * cnt
-                for cnt in self._counts
-            ]
-            rewards = [
-                np.array([0.0] * cnt)
-                for cnt in self._counts
-            ]
-        return obs, rewards, dones, {}
+# class MAgentGroupsEnv(VectorEnv):
+#     def __init__(self, env: magent.GridWorld, handles: List[Any],
+#                  reset_env_func: Callable[[], None]):
+#         reset_env_func()
+#         action_spaces = [
+#             MAgentEnv.handle_action_space(env, h)
+#             for h in handles
+#         ]
+#
+#         observation_spaces = [
+#             MAgentEnv.handle_obs_space(env, h)
+#             for h in handles
+#         ]
+#
+#         counts = [
+#             env.get_num(h)
+#             for h in handles
+#         ]
+#
+#         super(MAgentGroupsEnv, self).__init__(
+#             1, spaces.Tuple(observation_spaces),
+#             spaces.Tuple(action_spaces)
+#         )
+#         self.action_space = self.single_action_space
+#         self._env = env
+#         self._handles = handles
+#         self._reset_env_func = reset_env_func
+#         self._counts = counts
+#
+#     def reset_wait(self):
+#         self._reset_env_func()
+#         return tuple([
+#             MAgentEnv.handle_observations(self._env, h)
+#             for h in self._handles
+#         ])
+#
+#     def step_async(self, actions: Tuple):
+#         print(actions)
+#         for h, acts in zip(self._handles, actions):
+#             self._env.set_action(h, np.array(acts, dtype=np.int32))
+#         # acts = [
+#         #     np.zeros(c, dtype=np.int32)
+#         #     for c in self._counts
+#         # ]
+#         # print(actions, self._counts)
+#         # self._env.set_action(self._handles[0], acts[0])
+#         # self._env.set_action(self._handles[1], acts[1])
+#         pass
+#
+#     def step_wait(self):
+#         done = self._env.step()
+#         self._env.clear_dead()
+#
+#         obs = [
+#             MAgentEnv.handle_observations(self._env, h)
+#             for h in self._handles
+#         ]
+#         rewards = [
+#             self._env.get_reward(h)
+#             for h in self._handles
+#         ]
+#         for r in rewards:
+#             if not r.tolist():
+#                 done = True
+#                 break
+#         dones = [
+#             [done] * len(r)
+#             for r in rewards
+#         ]
+#
+#         if done:
+#             obs = self.reset()
+#             dones = [
+#                 [done] * cnt
+#                 for cnt in self._counts
+#             ]
+#             rewards = [
+#                 np.array([0.0] * cnt)
+#                 for cnt in self._counts
+#             ]
+#         return obs, rewards, dones, {}

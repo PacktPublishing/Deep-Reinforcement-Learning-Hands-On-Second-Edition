@@ -66,12 +66,11 @@ def test_model(net: model.DQNModel, device: torch.device, gw_config) -> Tuple[fl
     return rewards / COUNT_TIGERS, steps / COUNT_TIGERS
 
 
-def batches_generator(exp_source: ptan.experience.ExperienceSourceFirstLast,
-                      buffers: List[ptan.experience.ExperienceReplayBuffer],
+def batches_generator(buffers: List[ptan.experience.ExperienceReplayBuffer],
                       replay_initial: int, batch_size: int):
-    for exp in exp_source:
-        for buf, e in zip(buffers, exp):
-            buf._add(e)
+    while True:
+        for buf in buffers:
+            buf.populate(1)
         if len(buffers[0]) < replay_initial:
             continue
         batches = [
@@ -111,8 +110,8 @@ if __name__ == "__main__":
         m_env.add_agents(deer_handle, method="random", n=COUNT_DEERS)
         m_env.add_agents(tiger_handle, method="random", n=COUNT_TIGERS)
 
-    env = data.MAgentGroupsEnv(m_env, [deer_handle, tiger_handle],
-                               reset_env_func=reset_env)
+    deer_env = data.MAgentEnv(m_env, deer_handle, reset_env_func=lambda: None, is_slave=True)
+    tiger_env = data.MAgentEnv(m_env, tiger_handle, reset_env_func=reset_env, is_slave=False)
 
     deer_obs = data.MAgentEnv.handle_obs_space(m_env, deer_handle)
     tiger_obs = data.MAgentEnv.handle_obs_space(m_env, tiger_handle)
@@ -134,18 +133,20 @@ if __name__ == "__main__":
     epsilon_tracker = common.EpsilonTracker(action_selector, PARAMS)
     preproc = model.MAgentPreprocessor(device)
 
-    agent = model.GroupDQNAgent(
-        [net_deer, net_tiger], action_selector,
-        device, preprocessor=preproc)
-    exp_source = ptan.experience.ExperienceSourceFirstLast(
-        env, agent, PARAMS.gamma, vectorized=True)
-    deer_buffer = ptan.experience.ExperienceReplayBuffer(None, PARAMS.replay_size)
-    tiger_buffer = ptan.experience.ExperienceReplayBuffer(None, PARAMS.replay_size)
+    deer_agent = ptan.agent.DQNAgent(net_deer, action_selector, device, preprocessor=preproc)
+    tiger_agent = ptan.agent.DQNAgent(net_tiger, action_selector, device, preprocessor=preproc)
+    deer_exp_source = ptan.experience.ExperienceSourceFirstLast(
+        deer_env, deer_agent, PARAMS.gamma, vectorized=True)
+    tiger_exp_source = ptan.experience.ExperienceSourceFirstLast(
+        tiger_env, tiger_agent, PARAMS.gamma, vectorized=True)
+    deer_buffer = ptan.experience.ExperienceReplayBuffer(deer_exp_source, PARAMS.replay_size)
+    tiger_buffer = ptan.experience.ExperienceReplayBuffer(tiger_exp_source, PARAMS.replay_size)
     deer_optimizer = optim.Adam(net_deer.parameters(), lr=PARAMS.learning_rate)
     tiger_optimizer = optim.Adam(net_tiger.parameters(), lr=PARAMS.learning_rate)
 
     def process_batches(engine, batches):
         res = {}
+        loss = 0.0
         for name, batch, opt, net, tgt_net in zip(
                 ["deer", "tiger"],
                 batches, [deer_optimizer, tiger_optimizer],
@@ -158,15 +159,17 @@ if __name__ == "__main__":
             loss_v.backward()
             opt.step()
             res[name + "_loss"] = loss_v.item()
+            loss += loss_v.item()
             if engine.state.iteration % PARAMS.target_net_sync == 0:
                 tgt_net.sync()
 
         epsilon_tracker.frame(engine.state.iteration)
         res['epsilon'] = action_selector.epsilon
+        res['loss'] = loss
         return res
 
     engine = Engine(process_batches)
-    common.setup_ignite(engine, PARAMS, exp_source, args.name,
+    common.setup_ignite(engine, PARAMS, tiger_exp_source, args.name,
                         extra_metrics=('test_reward', 'test_steps'))
     best_test_reward = None
 
@@ -192,5 +195,5 @@ if __name__ == "__main__":
     #         torch.save(net.state_dict(), os.path.join(saves_path, "best_%.3f.dat" % reward))
 
     engine.run(batches_generator(
-        exp_source, [deer_buffer, tiger_buffer],
+        [deer_buffer, tiger_buffer],
         PARAMS.replay_initial, PARAMS.batch_size))
