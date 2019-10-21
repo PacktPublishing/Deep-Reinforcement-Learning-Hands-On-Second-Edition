@@ -37,8 +37,8 @@ PARAMS = SimpleNamespace(**{
 })
 
 
-def test_model(net: model.DQNModel, device: torch.device, mode: str) -> Tuple[float, float]:
-    test_env = magent.GridWorld(mode, map_size=MAP_SIZE)
+def test_model(net: model.DQNModel, device: torch.device, gw_config) -> Tuple[float, float]:
+    test_env = magent.GridWorld(gw_config, map_size=MAP_SIZE)
     deer_handle, tiger_handle = test_env.get_handles()
 
     def reset_env():
@@ -74,11 +74,18 @@ if __name__ == "__main__":
                         help="GridWorld mode, could be 'forest' or 'double_attack', default='forest'")
     args = parser.parse_args()
 
+    config = args.mode
+    # tweak count of agents in this mode to simplify exploration
+    if args.mode == 'double_attack':
+        COUNT_TIGERS = 20
+        COUNT_DEERS = 512
+        config = data.config_double_attack(MAP_SIZE)
+
     device = torch.device("cuda" if args.cuda else "cpu")
     saves_path = os.path.join("saves", args.name)
     os.makedirs(saves_path, exist_ok=True)
 
-    m_env = magent.GridWorld(args.mode, map_size=MAP_SIZE)
+    m_env = magent.GridWorld(config, map_size=MAP_SIZE)
 
     # two groups of animal
     deer_handle, tiger_handle = m_env.get_handles()
@@ -131,7 +138,7 @@ if __name__ == "__main__":
     @engine.on(ptan_ignite.PeriodEvents.ITERS_10000_COMPLETED)
     def test_network(engine):
         net.train(False)
-        reward, steps = test_model(net, device, args.mode)
+        reward, steps = test_model(net, device, config)
         net.train(True)
         engine.state.metrics['test_reward'] = reward
         engine.state.metrics['test_steps'] = steps
