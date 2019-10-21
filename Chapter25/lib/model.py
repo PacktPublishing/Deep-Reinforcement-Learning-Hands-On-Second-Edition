@@ -12,7 +12,7 @@ class DQNModel(nn.Module):
         self.view_conv = nn.Sequential(
             nn.Conv2d(view_shape[0], 32, kernel_size=3, padding=0),
             nn.ReLU(),
-            nn.Conv2d(32, 16, kernel_size=2, padding=0),
+            nn.Conv2d(32, 16, kernel_size=2, padding=1),        # padding was added for deer model
             nn.ReLU(),
         )
         view_out_size = self._get_conv_out(view_shape)
@@ -93,3 +93,28 @@ def calc_loss_dqn(batch, net, tgt_net, preprocessor, gamma, device="cpu"):
     bellman_vals = next_state_vals.detach() * gamma + rewards_v
     return nn.MSELoss()(state_action_vals, bellman_vals)
 
+
+class GroupDQNAgent(ptan.agent.BaseAgent):
+    """
+    Similar to DQNAgent, but works with several models. Observations are tuples
+    """
+    def __init__(self, dqn_models: List[DQNModel],
+                 action_selector, device="cpu",
+                 preprocessor=ptan.agent.default_states_preprocessor):
+        self.dqn_models = dqn_models
+        self.action_selector = action_selector
+        self.preprocessor = preprocessor
+        self.device = device
+
+    def __call__(self, states, agent_states=None):
+        if agent_states is None:
+            agent_states = [None] * len(states)
+        result = []
+        for states_batch, model in zip(states, self.dqn_models):
+            if self.preprocessor is not None:
+                states_batch = self.preprocessor(states_batch)
+            q_v = model(states_batch)
+            q = q_v.data.cpu().numpy()
+            actions = self.action_selector(q)
+            result.append(actions)
+        return result, agent_states
