@@ -37,7 +37,8 @@ PARAMS = SimpleNamespace(**{
 })
 
 
-def test_model(net: model.DQNModel, device: torch.device, gw_config) -> Tuple[float, float]:
+def test_model(net_deer: model.DQNModel, net_tiger: model.DQNModel,
+               device: torch.device, gw_config) -> Tuple[float, float, float, float]:
     test_env = magent.GridWorld(gw_config, map_size=MAP_SIZE)
     deer_handle, tiger_handle = test_env.get_handles()
 
@@ -47,23 +48,35 @@ def test_model(net: model.DQNModel, device: torch.device, gw_config) -> Tuple[fl
         test_env.add_agents(deer_handle, method="random", n=COUNT_DEERS)
         test_env.add_agents(tiger_handle, method="random", n=COUNT_TIGERS)
 
-    env = data.MAgentEnv(test_env, tiger_handle, reset_env_func=reset_env)
+    deer_env = data.MAgentEnv(test_env, deer_handle, reset_env_func=reset_env, is_slave=True)
+    tiger_env = data.MAgentEnv(test_env, tiger_handle, reset_env_func=reset_env)
     preproc = model.MAgentPreprocessor(device)
-    agent = ptan.agent.DQNAgent(net, ptan.actions.ArgmaxActionSelector(), device, preprocessor=preproc)
+    deer_agent = ptan.agent.DQNAgent(net_deer, ptan.actions.ArgmaxActionSelector(), device, preprocessor=preproc)
+    tiger_agent = ptan.agent.DQNAgent(net_tiger, ptan.actions.ArgmaxActionSelector(), device, preprocessor=preproc)
 
-    obs = env.reset()
-    steps = 0
-    rewards = 0.0
+    t_obs = tiger_env.reset()
+    d_obs = deer_env.reset()
+    deer_steps = 0
+    deer_rewards = 0.0
+    tiger_steps = 0
+    tiger_rewards = 0.0
 
     while True:
-        actions = agent(obs)[0]
-        obs, r, dones, _ = env.step(actions)
-        steps += len(obs)
-        rewards += sum(r)
-        if dones[0]:
+        d_actions = deer_agent(d_obs)[0]
+        t_actions = tiger_agent(t_obs)[0]
+        d_obs, d_r, d_dones, _ = deer_env.step(d_actions)
+        t_obs, t_r, t_dones, _ = tiger_env.step(t_actions)
+        tiger_steps += len(t_obs)
+        tiger_rewards += sum(t_r)
+        if t_dones[0]:
+            break
+        deer_steps += len(d_obs)
+        deer_rewards += sum(d_r)
+        if d_dones[0]:
             break
 
-    return rewards / COUNT_TIGERS, steps / COUNT_TIGERS
+    return deer_rewards / COUNT_DEERS, deer_steps / COUNT_DEERS, \
+           tiger_rewards / COUNT_TIGERS, tiger_steps / COUNT_TIGERS
 
 
 def batches_generator(buffers: List[ptan.experience.ExperienceReplayBuffer],
@@ -88,12 +101,13 @@ if __name__ == "__main__":
                         help="GridWorld mode, could be 'forest' or 'double_attack', default='forest'")
     args = parser.parse_args()
 
-    config = args.mode
     # tweak count of agents in this mode to simplify exploration
     if args.mode == 'double_attack':
         COUNT_TIGERS = 20
         COUNT_DEERS = 512
         config = data.config_double_attack(MAP_SIZE)
+    else:
+        config = data.config_forest(MAP_SIZE)
 
     device = torch.device("cuda" if args.cuda else "cpu")
     saves_path = os.path.join("saves", args.name)
@@ -170,29 +184,44 @@ if __name__ == "__main__":
 
     engine = Engine(process_batches)
     common.setup_ignite(engine, PARAMS, tiger_exp_source, args.name,
-                        extra_metrics=('test_reward', 'test_steps'))
-    best_test_reward = None
+                        extra_metrics=('test_reward_deer', 'test_steps_deer', 'test_reward_tiger', 'test_steps_tiger'))
+    best_test_reward_deer = None
+    best_test_reward_tiger = None
 
-    # @engine.on(ptan_ignite.PeriodEvents.ITERS_10000_COMPLETED)
-    # def test_network(engine):
-    #     net.train(False)
-    #     reward, steps = test_model(net, device, config)
-    #     net.train(True)
-    #     engine.state.metrics['test_reward'] = reward
-    #     engine.state.metrics['test_steps'] = steps
-    #     print("Test done: got %.3f reward after %.2f steps" % (
-    #         reward, steps
-    #     ))
-    #
-    #     global best_test_reward
-    #     if best_test_reward is None:
-    #         best_test_reward = reward
-    #     elif best_test_reward < reward:
-    #         print("Best test reward updated %.3f <- %.3f, save model" % (
-    #             best_test_reward, reward
-    #         ))
-    #         best_test_reward = reward
-    #         torch.save(net.state_dict(), os.path.join(saves_path, "best_%.3f.dat" % reward))
+    @engine.on(ptan_ignite.PeriodEvents.ITERS_10000_COMPLETED)
+    def test_network(engine):
+        net_deer.train(False)
+        net_tiger.train(False)
+        deer_reward, deer_steps, tiger_reward, tiger_steps = test_model(net_deer, net_tiger, device, config)
+        net_deer.train(True)
+        net_tiger.train(True)
+        engine.state.metrics['test_reward_deer'] = deer_reward
+        engine.state.metrics['test_steps_deer'] = deer_steps
+        engine.state.metrics['test_reward_tiger'] = tiger_reward
+        engine.state.metrics['test_steps_tiger'] = tiger_steps
+        print("Test done: Deers got %.3f reward after %.2f steps, tigers %.3f reward after %.2f steps" % (
+            deer_reward, deer_steps, tiger_reward, tiger_steps
+        ))
+
+        global best_test_reward_deer, best_test_reward_tiger
+
+        if best_test_reward_deer is None:
+            best_test_reward_deer = deer_reward
+        elif best_test_reward_deer < deer_reward:
+            print("Best test deer reward updated %.3f <- %.3f, save model" % (
+                best_test_reward_deer, deer_reward
+            ))
+            best_test_reward_deer = deer_reward
+            torch.save(net_deer.state_dict(), os.path.join(saves_path, "deer_best_%.3f.dat" % deer_reward))
+
+        if best_test_reward_tiger is None:
+            best_test_reward_tiger = tiger_reward
+        elif best_test_reward_tiger < tiger_reward:
+            print("Best test tiger reward updated %.3f <- %.3f, save model" % (
+                best_test_reward_tiger, tiger_reward
+            ))
+            best_test_reward_tiger = tiger_reward
+            torch.save(net_tiger.state_dict(), os.path.join(saves_path, "tiger_best_%.3f.dat" % tiger_reward))
 
     engine.run(batches_generator(
         [deer_buffer, tiger_buffer],
