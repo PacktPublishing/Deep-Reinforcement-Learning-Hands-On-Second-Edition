@@ -16,7 +16,8 @@ class MAgentEnv(VectorEnv):
 
         count = env.get_num(handle)
 
-        super(MAgentEnv, self).__init__(count, observation_space, action_space)
+        super(MAgentEnv, self).__init__(count, observation_space,
+                                        action_space)
         self.action_space = self.single_action_space
         self._env = env
         self._handle = handle
