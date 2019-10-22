@@ -70,8 +70,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action='store_true', help="Enable CUDA computations")
     parser.add_argument("-n", "--name", required=True, help="Run name")
-    parser.add_argument("--mode", default='forest', choices=['forest', 'double_attack'],
-                        help="GridWorld mode, could be 'forest' or 'double_attack', default='forest'")
+    parser.add_argument("--mode", default='forest', choices=['forest', 'double_attack', 'double_attack_nn'],
+                        help="GridWorld mode, could be 'forest', 'double_attack' or 'double_attck_nn', default='forest'")
     args = parser.parse_args()
 
     config = args.mode
@@ -79,7 +79,13 @@ if __name__ == "__main__":
     if args.mode == 'double_attack':
         COUNT_TIGERS = 20
         COUNT_DEERS = 1024
+        # tweaked double_attack
         config = data.config_double_attack(MAP_SIZE)
+    elif args.mode == 'double_attack_nn':
+        COUNT_TIGERS = 20
+        COUNT_DEERS = 1024
+        # original double_attack setting
+        config = 'double_attack'
 
     device = torch.device("cuda" if args.cuda else "cpu")
     saves_path = os.path.join("saves", args.name)
@@ -98,7 +104,7 @@ if __name__ == "__main__":
 
     env = data.MAgentEnv(m_env, tiger_handle, reset_env_func=reset_env)
 
-    if args.mode == 'double_attack':
+    if args.mode == 'double_attack_nn':
         net = model.DQNNoisyModel(env.single_observation_space.spaces[0].shape,
                                   env.single_observation_space.spaces[1].shape,
                                   m_env.get_action_space(tiger_handle)[0]).to(device)
