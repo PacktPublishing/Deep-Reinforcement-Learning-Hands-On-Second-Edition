@@ -116,7 +116,6 @@ def config_forest(map_size):
     return cfg
 
 
-
 def config_double_attack(map_size):
     gw = magent.gridworld
     cfg = gw.Config()
