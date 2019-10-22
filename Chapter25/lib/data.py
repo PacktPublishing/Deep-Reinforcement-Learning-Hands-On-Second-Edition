@@ -1,7 +1,7 @@
 import gym
 import magent
 import numpy as np
-from typing import Callable, List, Any, Tuple
+from typing import Callable, List, Any, Tuple, Optional
 
 from gym import spaces
 from gym.vector.vector_env import VectorEnv
@@ -9,7 +9,8 @@ from gym.vector.vector_env import VectorEnv
 
 class MAgentEnv(VectorEnv):
     def __init__(self, env: magent.GridWorld, handle,
-                 reset_env_func: Callable[[], None], is_slave: bool = False):
+                 reset_env_func: Callable[[], None], is_slave: bool = False,
+                 steps_limit: Optional[int] = None):
         reset_env_func()
         action_space = self.handle_action_space(env, handle)
         observation_space = self.handle_obs_space(env, handle)
@@ -23,6 +24,8 @@ class MAgentEnv(VectorEnv):
         self._handle = handle
         self._reset_env_func = reset_env_func
         self._is_slave = is_slave
+        self._steps_limit = steps_limit
+        self._steps_done = 0
 
     @classmethod
     def handle_action_space(cls, env: magent.GridWorld, handle) -> gym.Space:
@@ -42,6 +45,7 @@ class MAgentEnv(VectorEnv):
         return spaces.Tuple((view_space, extra_space))
 
     def reset_wait(self):
+        self._steps_done = 0
         if not self._is_slave:
             self._reset_env_func()
         return self.handle_observations(self._env, self._handle)
@@ -67,9 +71,12 @@ class MAgentEnv(VectorEnv):
         self._env.set_action(self._handle, np.array(actions, dtype=np.int32))
 
     def step_wait(self):
+        self._steps_done += 1
         if not self._is_slave:
             done = self._env.step()
             self._env.clear_dead()
+            if self._steps_limit is not None and self._steps_limit <= self._steps_done:
+                done = True
         else:
             done = False
 
