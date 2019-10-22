@@ -136,8 +136,8 @@ def config_double_attack(map_size):
          'view_range': gw.CircleRange(1), 'attack_range': gw.CircleRange(0),
          'step_recover': 0.2,
          'kill_supply': 8,
-         # added to standard 'double_attack' setup in MAgent. Needed to get reward for longer episodes
-         'step_reward': 0.1,
+         # # added to standard 'double_attack' setup in MAgent. Needed to get reward for longer episodes
+         # 'step_reward': 0.1,
          })
 
     tiger = cfg.register_agent_type(
@@ -145,8 +145,8 @@ def config_double_attack(map_size):
         {'width': 1, 'length': 1, 'hp': 10, 'speed': 1,
          'view_range': gw.CircleRange(4), 'attack_range': gw.CircleRange(1),
          'damage': 1, 'step_recover': -0.2,
-         # added to standard 'double_attack' setup in MAgent. Needed to get reward for longer episodes
-         'step_reward': 0.1,
+         # # added to standard 'double_attack' setup in MAgent. Needed to get reward for longer episodes
+         # 'step_reward': 0.1,
          })
 
     deer_group  = cfg.add_group(deer)

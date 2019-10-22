@@ -22,7 +22,7 @@ MAP_SIZE = 64
 COUNT_AGENTS_1 = 50
 COUNT_AGENTS_2 = 50
 WALLS_DENSITY = 0.04
-MAX_EPISODE = 100
+MAX_EPISODE = 200
 
 
 PARAMS = SimpleNamespace(**{
@@ -161,7 +161,7 @@ if __name__ == "__main__":
                         extra_metrics=('test_reward_a', 'test_steps_a', 'test_reward_b', 'test_steps_b'))
     best_test_reward = None
 
-    @engine.on(ptan_ignite.PeriodEvents.ITERS_10000_COMPLETED)
+    @engine.on(ptan_ignite.PeriodEvents.ITERS_1000_COMPLETED)
     def test_network(engine):
         net.train(False)
         a_reward, a_steps, b_reward, b_steps = test_model(net, device, config)

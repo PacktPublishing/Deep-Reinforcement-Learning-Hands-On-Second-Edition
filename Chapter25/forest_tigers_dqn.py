@@ -78,7 +78,7 @@ if __name__ == "__main__":
     # tweak count of agents in this mode to simplify exploration
     if args.mode == 'double_attack':
         COUNT_TIGERS = 20
-        COUNT_DEERS = 512
+        COUNT_DEERS = 1024
         config = data.config_double_attack(MAP_SIZE)
 
     device = torch.device("cuda" if args.cuda else "cpu")
@@ -98,15 +98,24 @@ if __name__ == "__main__":
 
     env = data.MAgentEnv(m_env, tiger_handle, reset_env_func=reset_env)
 
-    net = model.DQNModel(env.single_observation_space.spaces[0].shape,
-                         env.single_observation_space.spaces[1].shape,
-                         m_env.get_action_space(tiger_handle)[0]).to(device)
+    if args.mode == 'double_attack':
+        net = model.DQNNoisyModel(env.single_observation_space.spaces[0].shape,
+                                  env.single_observation_space.spaces[1].shape,
+                                  m_env.get_action_space(tiger_handle)[0]).to(device)
+    else:
+        net = model.DQNModel(env.single_observation_space.spaces[0].shape,
+                             env.single_observation_space.spaces[1].shape,
+                             m_env.get_action_space(tiger_handle)[0]).to(device)
     tgt_net = ptan.agent.TargetNet(net)
     print(net)
 
-    action_selector = ptan.actions.EpsilonGreedyActionSelector(
-        epsilon=PARAMS.epsilon_start)
-    epsilon_tracker = common.EpsilonTracker(action_selector, PARAMS)
+    if args.mode == 'double_attack':
+        action_selector = ptan.actions.ArgmaxActionSelector()
+        epsilon_tracker = None
+    else:
+        action_selector = ptan.actions.EpsilonGreedyActionSelector(
+            epsilon=PARAMS.epsilon_start)
+        epsilon_tracker = common.EpsilonTracker(action_selector, PARAMS)
     preproc = model.MAgentPreprocessor(device)
     agent = ptan.agent.DQNAgent(net, action_selector, device, preprocessor=preproc)
     exp_source = ptan.experience.ExperienceSourceFirstLast(
@@ -116,19 +125,20 @@ if __name__ == "__main__":
     optimizer = optim.Adam(net.parameters(), lr=PARAMS.learning_rate)
 
     def process_batch(engine, batch):
+        res = {}
         optimizer.zero_grad()
         loss_v = model.calc_loss_dqn(
             batch, net, tgt_net.target_model, preproc,
             gamma=PARAMS.gamma, device=device)
         loss_v.backward()
         optimizer.step()
-        epsilon_tracker.frame(engine.state.iteration)
+        if epsilon_tracker is not None:
+            epsilon_tracker.frame(engine.state.iteration)
+            res['epsilon'] = action_selector.epsilon
         if engine.state.iteration % PARAMS.target_net_sync == 0:
             tgt_net.sync()
-        return {
-            "loss": loss_v.item(),
-            "epsilon": action_selector.epsilon,
-        }
+        res['loss'] = loss_v.item()
+        return res
 
     engine = Engine(process_batch)
     common.setup_ignite(engine, PARAMS, exp_source, args.name,
