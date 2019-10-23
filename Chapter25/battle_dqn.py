@@ -18,25 +18,25 @@ from lib import data, model, common
 from ignite.engine import Engine
 
 
-MAP_SIZE = 64
-COUNT_AGENTS_1 = 50
-COUNT_AGENTS_2 = 50
+MAP_SIZE = 16
+COUNT_AGENTS_1 = 20
+COUNT_AGENTS_2 = 20
 WALLS_DENSITY = 0.04
-MAX_EPISODE = 200
+MAX_EPISODE = 300
 
 
 PARAMS = SimpleNamespace(**{
     'run_name':         'battle',
     'stop_reward':      None,
-    'replay_size':      1000000,
+    'replay_size':      2000000,
     'replay_initial':   100,
-    'target_net_sync':  1000,
-    'epsilon_frames':   5*10**5,
+    'target_net_sync':  2000,
+    'epsilon_frames':   10**5,
     'epsilon_start':    1.0,
     'epsilon_final':    0.02,
     'learning_rate':    1e-4,
-    'gamma':            0.99,
-    'batch_size':       32
+    'gamma':            0.95,
+    'batch_size':       128
 })
 
 
