@@ -1,0 +1,6 @@
+.idea
+runs
+saves
+*.png
+.ipynb_checkpoints
+*.log
