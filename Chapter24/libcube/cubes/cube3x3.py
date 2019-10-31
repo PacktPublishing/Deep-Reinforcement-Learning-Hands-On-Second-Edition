@@ -8,13 +8,17 @@ from . import _env
 from . import _common
 
 # environment API
-State = collections.namedtuple("State", field_names=['corner_pos', 'side_pos', 'corner_ort', 'side_ort'])
+State = collections.namedtuple("State", field_names=[
+    'corner_pos', 'side_pos', 'corner_ort', 'side_ort'])
 
 # rendered state -- list of colors of every side
 RenderedState = collections.namedtuple("RenderedState", field_names=['top', 'front', 'left', 'right', 'back', 'bottom'])
 
 # initial (solved state)
-initial_state = State(corner_pos=tuple(range(8)), side_pos=tuple(range(12)), corner_ort=tuple([0]*8), side_ort=tuple([0]*12))
+initial_state = State(corner_pos=tuple(range(8)),
+                      side_pos=tuple(range(12)),
+                      corner_ort=tuple([0]*8),
+                      side_ort=tuple([0]*12))
 
 
 def is_initial(state):
