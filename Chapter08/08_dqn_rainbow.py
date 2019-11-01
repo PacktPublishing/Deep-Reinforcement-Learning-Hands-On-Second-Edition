@@ -24,7 +24,7 @@ def calc_loss_rainbow(batch, batch_weights, net, tgt_net, gamma,
     states_v = torch.tensor(states).to(device)
     actions_v = torch.tensor(actions).to(device)
     rewards_v = torch.tensor(rewards).to(device)
-    done_mask = torch.ByteTensor(dones).to(device)
+    done_mask = torch.BoolTensor(dones).to(device)
     batch_weights_v = torch.tensor(batch_weights).to(device)
 
     actions_v = actions_v.unsqueeze(-1)
@@ -54,7 +54,7 @@ def calc_loss_prio(batch, batch_weights, net, tgt_net, gamma, device="cpu"):
     states_v = torch.tensor(states).to(device)
     actions_v = torch.tensor(actions).to(device)
     rewards_v = torch.tensor(rewards).to(device)
-    done_mask = torch.ByteTensor(dones).to(device)
+    done_mask = torch.BoolTensor(dones).to(device)
     batch_weights_v = torch.tensor(batch_weights).to(device)
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)

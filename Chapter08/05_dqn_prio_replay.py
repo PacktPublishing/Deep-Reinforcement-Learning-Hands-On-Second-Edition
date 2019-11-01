@@ -23,7 +23,7 @@ def calc_loss(batch, batch_weights, net, tgt_net,
     states_v = torch.tensor(states).to(device)
     actions_v = torch.tensor(actions).to(device)
     rewards_v = torch.tensor(rewards).to(device)
-    done_mask = torch.ByteTensor(dones).to(device)
+    done_mask = torch.BoolTensor(dones).to(device)
     batch_weights_v = torch.tensor(batch_weights).to(device)
 
     actions_v = actions_v.unsqueeze(-1)
