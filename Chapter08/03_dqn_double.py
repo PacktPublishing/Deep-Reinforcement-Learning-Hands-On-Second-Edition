@@ -26,7 +26,7 @@ def calc_loss_double_dqn(batch, net, tgt_net, gamma,
     states_v = torch.tensor(states).to(device)
     actions_v = torch.tensor(actions).to(device)
     rewards_v = torch.tensor(rewards).to(device)
-    done_mask = torch.ByteTensor(dones).to(device)
+    done_mask = torch.BoolTensor(dones).to(device)
 
     actions_v = actions_v.unsqueeze(-1)
     state_action_vals = net(states_v).gather(1, actions_v)
