@@ -58,7 +58,7 @@ def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu", cuda_async=False):
     next_states_v = torch.tensor(next_states).to(device, non_blocking=cuda_async)
     actions_v = torch.tensor(actions).to(device, non_blocking=cuda_async)
     rewards_v = torch.tensor(rewards).to(device, non_blocking=cuda_async)
-    done_mask = torch.ByteTensor(dones).to(device, non_blocking=cuda_async)
+    done_mask = torch.BoolTensor(dones).to(device, non_blocking=cuda_async)
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
     next_state_values = tgt_net(next_states_v).max(1)[0]
