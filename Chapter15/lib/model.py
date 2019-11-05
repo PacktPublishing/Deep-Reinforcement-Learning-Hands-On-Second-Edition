@@ -24,7 +24,7 @@ class DQNModel(nn.Module):
         )
 
     def forward(self, obs, cmd):
-        x = torch.cat(torch.broadcast_tensors(obs, cmd), dim=1)
+        x = torch.cat((obs, cmd), dim=1)
         return self.net(x)
 
     @torch.no_grad()
@@ -35,7 +35,16 @@ class DQNModel(nn.Module):
         :param commands_t: commands to be evaluated, shape is [N, cmd_size]
         :return: list of q-values for commands
         """
-        q_vals = self(obs_t.unsqueeze(0), commands_t)
+        result = []
+        for cmd_t in commands_t:
+            qval = self(obs_t, cmd_t.unsqueeze(0))[0].cpu().item()
+            result.append(qval)
+        return result
+
+    @torch.no_grad()
+    def q_values_cmd(self, obs_t, commands_t):
+        x = torch.cat(torch.broadcast_tensors(obs_t.unsqueeze(0), commands_t), dim=1)
+        q_vals = self.net(x)
         return q_vals.cpu().numpy()[:, 0].tolist()
 
 
@@ -303,7 +312,7 @@ class CmdDQNAgent(ptan.agent.BaseAgent):
                 act_index = random.randrange(len(commands))
             else:
                 cmd_enc_t = self.prepr._apply_encoder(commands, self.cmd_encoder)
-                q_vals = self.net.q_values(obs_t[0], cmd_enc_t)
+                q_vals = self.net.q_values_cmd(obs_t[0], cmd_enc_t)
                 act_index = np.argmax(q_vals)
 
             cmd = commands[act_index]
@@ -346,7 +355,7 @@ def unpack_batch_dqncmd(batch, prep: preproc.Preprocessor,
                     next_commands):
             next_embs_t = prep._apply_encoder(
                 next_cmds, cmd_encoder)
-            q_vals = net.q_values(next_obs_t, next_embs_t)
+            q_vals = net.q_values_cmd(next_obs_t, next_embs_t)
             next_q_vals[idx] = max(q_vals)
 
     return observations_t, taken_actions, rewards, next_q_vals

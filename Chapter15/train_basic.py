@@ -35,7 +35,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-g", "--game", default="simple",
                         help="Game prefix to be used during training, default=simple")
-    parser.add_argument("--params", choices=list(common.PARAMS.keys()),
+    parser.add_argument("--params", choices=list(common.PARAMS.keys()), default='small',
                         help="Training params, could be one of %s" % (list(common.PARAMS.keys())))
     parser.add_argument("-s", "--suffices", type=int, default=1,
                         help="Count of game indices to use during training, default=1")

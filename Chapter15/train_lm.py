@@ -6,7 +6,6 @@ import argparse
 import itertools
 import numpy as np
 from typing import List
-import warnings
 from textworld.gym import register_games
 from textworld.envs.wrappers.filter import EnvInfos
 
@@ -64,11 +63,10 @@ def batch_generator(exp_source: ptan.experience.ExperienceSourceFirstLast,
 
 
 if __name__ == "__main__":
-    warnings.simplefilter("ignore", category=UserWarning)
     parser = argparse.ArgumentParser()
     parser.add_argument("-g", "--game", default="simple",
                         help="Game prefix to be used during training, default=simple")
-    parser.add_argument("--params", choices=list(common.PARAMS.keys()),
+    parser.add_argument("--params", choices=list(common.PARAMS.keys()), default='small',
                         help="Training params, could be one of %s" % (list(common.PARAMS.keys())))
     parser.add_argument("-s", "--suffices", type=int, default=1,
                         help="Count of game indices to use during training, default=1")
@@ -221,7 +219,7 @@ if __name__ == "__main__":
             obs_t = prep.encode_sequences([obs['obs']]).to(device)
             cmds = cmd.commands(obs_t)[0]
             cmd_embs_t = prep._apply_encoder(cmds, cmd_encoder)
-            q_vals = net.q_values(obs_t[0], cmd_embs_t)
+            q_vals = net.q_values_cmd(obs_t[0], cmd_embs_t)
             act = np.argmax(q_vals)
             best_cmd = cmds[act]
             tokens = [
