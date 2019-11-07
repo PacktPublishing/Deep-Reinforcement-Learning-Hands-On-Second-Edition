@@ -5,6 +5,7 @@ import ptan.ignite as ptan_ignite
 from datetime import datetime, timedelta
 import argparse
 import collections
+import warnings
 from typing import List, Tuple
 
 import torch
@@ -78,6 +79,9 @@ class BatchGenerator:
 
 
 if __name__ == "__main__":
+    # get rid of missing metrics warning
+    warnings.simplefilter("ignore", category=UserWarning)
+
     mp.set_start_method('spawn')
     params = common.HYPERPARAMS['pong']
     parser = argparse.ArgumentParser()

@@ -5,6 +5,7 @@ import ptan.ignite as ptan_ignite
 from datetime import datetime, timedelta
 import argparse
 import random
+import warnings
 
 import torch
 import torch.optim as optim
@@ -27,6 +28,9 @@ def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
 
 
 if __name__ == "__main__":
+    # get rid of missing metrics warning
+    warnings.simplefilter("ignore", category=UserWarning)
+
     random.seed(common.SEED)
     torch.manual_seed(common.SEED)
     params = common.HYPERPARAMS['pong']

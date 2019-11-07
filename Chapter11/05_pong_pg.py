@@ -94,7 +94,7 @@ if __name__ == "__main__":
                 continue
 
             train_step_idx += 1
-            states_v = torch.FloatTensor(batch_states).to(device)
+            states_v = torch.FloatTensor(np.array(batch_states, copy=False)).to(device)
             batch_actions_t = torch.LongTensor(batch_actions).to(device)
 
             scale_std = np.std(batch_scales)

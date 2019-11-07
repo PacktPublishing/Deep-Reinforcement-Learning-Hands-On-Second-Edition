@@ -64,6 +64,7 @@ class Agent:
         self.state = env.reset()
         self.total_reward = 0.0
 
+    @torch.no_grad()
     def play_step(self, net, epsilon=0.0, device="cpu"):
         done_reward = None
 
@@ -93,16 +94,17 @@ class Agent:
 def calc_loss(batch, net, tgt_net, device="cpu"):
     states, actions, rewards, dones, next_states = batch
 
-    states_v = torch.tensor(states).to(device)
-    next_states_v = torch.tensor(next_states).to(device)
+    states_v = torch.tensor(np.array(states, copy=False)).to(device)
+    next_states_v = torch.tensor(np.array(next_states, copy=False)).to(device)
     actions_v = torch.tensor(actions).to(device)
     rewards_v = torch.tensor(rewards).to(device)
     done_mask = torch.BoolTensor(dones).to(device)
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
-    next_state_values = tgt_net(next_states_v).max(1)[0]
-    next_state_values[done_mask] = 0.0
-    next_state_values = next_state_values.detach()
+    with torch.no_grad():
+        next_state_values = tgt_net(next_states_v).max(1)[0]
+        next_state_values[done_mask] = 0.0
+        next_state_values = next_state_values.detach()
 
     expected_state_action_values = next_state_values * GAMMA + rewards_v
     return nn.MSELoss()(state_action_values, expected_state_action_values)

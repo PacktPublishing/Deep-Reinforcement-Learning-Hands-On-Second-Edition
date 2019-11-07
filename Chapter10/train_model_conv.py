@@ -4,7 +4,6 @@ import pathlib
 import argparse
 import gym.wrappers
 import numpy as np
-import warnings
 
 import torch
 import torch.optim as optim
@@ -35,8 +34,6 @@ STATES_TO_EVALUATE = 1000
 
 
 if __name__ == "__main__":
-    # get rid of missing metrics warning
-    warnings.simplefilter("ignore", category=UserWarning)
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", help="Enable cuda", default=False, action="store_true")
     parser.add_argument("--data", default=STOCKS, help=f"Stocks file or dir, default={STOCKS}")

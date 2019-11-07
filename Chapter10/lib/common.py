@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+import warnings
 from typing import Iterable
 from datetime import datetime, timedelta
 
@@ -68,6 +69,9 @@ def batch_generator(buffer: ptan.experience.ExperienceReplayBuffer,
 
 def setup_ignite(engine: Engine, exp_source, run_name: str,
                  extra_metrics: Iterable[str] = ()):
+    # get rid of missing metrics warning
+    warnings.simplefilter("ignore", category=UserWarning)
+
     handler = ptan_ignite.EndOfEpisodeHandler(exp_source, subsample_end_of_episode=100)
     handler.attach(engine)
     ptan_ignite.EpisodeFPSHandler().attach(engine)

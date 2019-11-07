@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import warnings
 from datetime import timedelta, datetime
 from types import SimpleNamespace
 from typing import Iterable, Tuple, List
@@ -77,7 +78,7 @@ HYPERPARAMS = {
 def unpack_batch(batch: List[ptan.experience.ExperienceFirstLast]):
     states, actions, rewards, dones, last_states = [],[],[],[],[]
     for exp in batch:
-        state = np.array(exp.state, copy=False)
+        state = np.array(exp.state)
         states.append(state)
         actions.append(exp.action)
         rewards.append(exp.reward)
@@ -85,7 +86,7 @@ def unpack_batch(batch: List[ptan.experience.ExperienceFirstLast]):
         if exp.last_state is None:
             lstate = state  # the result will be masked anyway
         else:
-            lstate = np.array(exp.last_state, copy=False)
+            lstate = np.array(exp.last_state)
         last_states.append(lstate)
     return np.array(states, copy=False), np.array(actions), \
            np.array(rewards, dtype=np.float32), \
@@ -101,7 +102,7 @@ def calc_loss_dqn(batch, net, tgt_net, gamma, device="cpu"):
     next_states_v = torch.tensor(next_states).to(device)
     actions_v = torch.tensor(actions).to(device)
     rewards_v = torch.tensor(rewards).to(device)
-    done_mask = torch.ByteTensor(dones).to(device)
+    done_mask = torch.BoolTensor(dones).to(device)
 
     actions_v = actions_v.unsqueeze(-1)
     state_action_vals = net(states_v).gather(1, actions_v)
@@ -149,6 +150,9 @@ def calc_values_of_states(states, net, device="cpu"):
 def setup_ignite(engine: Engine, params: SimpleNamespace,
                  exp_source, run_name: str,
                  extra_metrics: Iterable[str] = ()):
+    # get rid of missing metrics warning
+    warnings.simplefilter("ignore", category=UserWarning)
+
     handler = ptan_ignite.EndOfEpisodeHandler(
         exp_source, bound_avg_reward=params.stop_reward)
     handler.attach(engine)

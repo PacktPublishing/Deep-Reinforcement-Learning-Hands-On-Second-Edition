@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import gym
 import ptan
 import argparse
@@ -20,7 +21,7 @@ REWARD_STEPS = 4
 CLIP_GRAD = 0.1
 
 PROCESSES_COUNT = 4
-NUM_ENVS = 15
+NUM_ENVS = 8
 
 GRAD_BATCH = 64
 TRAIN_BATCH = 2
@@ -101,6 +102,7 @@ def grads_func(proc_name, net, device, train_queue):
 
 if __name__ == "__main__":
     mp.set_start_method('spawn')
+    os.environ['OMP_NUM_THREADS'] = "1"
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action="store_true", help="Enable cuda")
     parser.add_argument("-n", "--name", required=True, help="Name of the run")

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import gym
+import os
 import ptan
 import numpy as np
 import argparse
@@ -23,7 +24,8 @@ REWARD_STEPS = 4
 CLIP_GRAD = 0.1
 
 PROCESSES_COUNT = 4
-NUM_ENVS = 15
+NUM_ENVS = 8
+MICRO_BATCH_SIZE = 32
 
 if True:
     ENV_NAME = "PongNoFrameskip-v4"
@@ -38,6 +40,7 @@ else:
 def make_env():
     return ptan.common.wrappers.wrap_dqn(gym.make(ENV_NAME))
 
+
 TotalReward = collections.namedtuple('TotalReward', field_names='reward')
 
 
@@ -45,16 +48,25 @@ def data_func(net, device, train_queue):
     envs = [make_env() for _ in range(NUM_ENVS)]
     agent = ptan.agent.PolicyAgent(lambda x: net(x)[0], device=device, apply_softmax=True)
     exp_source = ptan.experience.ExperienceSourceFirstLast(envs, agent, gamma=GAMMA, steps_count=REWARD_STEPS)
+    micro_batch = []
 
     for exp in exp_source:
         new_rewards = exp_source.pop_total_rewards()
         if new_rewards:
             train_queue.put(TotalReward(reward=np.mean(new_rewards)))
-        train_queue.put(exp)
+
+        micro_batch.append(exp)
+        if len(micro_batch) < MICRO_BATCH_SIZE:
+            continue
+
+        data = common.unpack_batch(micro_batch, net, last_val_gamma=GAMMA ** REWARD_STEPS, device=device)
+        train_queue.put(data)
+        micro_batch.clear()
 
 
 if __name__ == "__main__":
     mp.set_start_method('spawn')
+    os.environ['OMP_NUM_THREADS'] = "1"
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action="store_true", help="Enable cuda")
     parser.add_argument("-n", "--name", required=True, help="Name of the run")
@@ -76,7 +88,9 @@ if __name__ == "__main__":
         data_proc.start()
         data_proc_list.append(data_proc)
 
-    batch = []
+    batch_states = []
+    batch_actions = []
+    batch_vals_ref = []
     step_idx = 0
 
     try:
@@ -89,14 +103,20 @@ if __name__ == "__main__":
                             break
                         continue
 
-                    step_idx += 1
-                    batch.append(train_entry)
-                    if len(batch) < BATCH_SIZE:
+                    states_v, actions_t, vals_ref_v = train_entry
+                    batch_states.append(states_v)
+                    batch_actions.append(actions_t)
+                    batch_vals_ref.append(vals_ref_v)
+                    step_idx += states_v.size()[0]
+                    if len(batch_states) < BATCH_SIZE / MICRO_BATCH_SIZE:
                         continue
 
-                    states_v, actions_t, vals_ref_v = \
-                        common.unpack_batch(batch, net, last_val_gamma=GAMMA**REWARD_STEPS, device=device)
-                    batch.clear()
+                    states_v = torch.cat(batch_states)
+                    actions_t = torch.cat(batch_actions)
+                    vals_ref_v = torch.cat(batch_vals_ref)
+                    batch_states.clear()
+                    batch_actions.clear()
+                    batch_vals_ref.clear()
 
                     optimizer.zero_grad()
                     logits_v, value_v = net(states_v)
@@ -105,7 +125,7 @@ if __name__ == "__main__":
 
                     log_prob_v = F.log_softmax(logits_v, dim=1)
                     adv_v = vals_ref_v - value_v.detach()
-                    log_prob_actions_v = adv_v * log_prob_v[range(BATCH_SIZE), actions_t]
+                    log_prob_actions_v = adv_v * log_prob_v[range(states_v.size()[0]), actions_t]
                     loss_policy_v = -log_prob_actions_v.mean()
 
                     prob_v = F.softmax(logits_v, dim=1)
