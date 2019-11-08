@@ -41,12 +41,15 @@ class InputWrapper(gym.ObservationWrapper):
         super(InputWrapper, self).__init__(*args)
         assert isinstance(self.observation_space, gym.spaces.Box)
         old_space = self.observation_space
-        self.observation_space = gym.spaces.Box(self.observation(old_space.low), self.observation(old_space.high),
-                                                dtype=np.float32)
+        self.observation_space = gym.spaces.Box(
+            self.observation(old_space.low),
+            self.observation(old_space.high),
+            dtype=np.float32)
 
     def observation(self, observation):
         # resize image
-        new_obs = cv2.resize(observation, (IMAGE_SIZE, IMAGE_SIZE))
+        new_obs = cv2.resize(
+            observation, (IMAGE_SIZE, IMAGE_SIZE))
         # transform (210, 160, 3) -> (3, 210, 160)
         new_obs = np.moveaxis(new_obs, 2, 0)
         return new_obs.astype(np.float32)
@@ -123,7 +126,8 @@ def iterate_batches(envs, batch_size=BATCH_SIZE):
             batch.append(obs)
         if len(batch) == batch_size:
             # Normalising input between -1 to 1
-            batch_np = np.array(batch, dtype=np.float32) * 2.0 / 255.0 - 1.0
+            batch_np = np.array(batch, dtype=np.float32)
+            batch_np *= 2.0 / 255.0 - 1.0
             yield torch.tensor(batch_np)
             batch.clear()
         if is_done:
@@ -132,19 +136,28 @@ def iterate_batches(envs, batch_size=BATCH_SIZE):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cuda", default=False, action='store_true', help="Enable cuda computation")
+    parser.add_argument(
+        "--cuda", default=False, action='store_true',
+        help="Enable cuda computation")
     args = parser.parse_args()
 
     device = torch.device("cuda" if args.cuda else "cpu")
-    envs = [InputWrapper(gym.make(name)) for name in ('Breakout-v0', 'AirRaid-v0', 'Pong-v0')]
+    envs = [
+        InputWrapper(gym.make(name))
+        for name in ('Breakout-v0', 'AirRaid-v0', 'Pong-v0')
+    ]
     input_shape = envs[0].observation_space.shape
 
     net_discr = Discriminator(input_shape=input_shape).to(device)
     net_gener = Generator(output_shape=input_shape).to(device)
 
     objective = nn.BCELoss()
-    gen_optimizer = optim.Adam(params=net_gener.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))
-    dis_optimizer = optim.Adam(params=net_discr.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))
+    gen_optimizer = optim.Adam(
+        params=net_gener.parameters(), lr=LEARNING_RATE,
+        betas=(0.5, 0.999))
+    dis_optimizer = optim.Adam(
+        params=net_discr.parameters(), lr=LEARNING_RATE,
+        betas=(0.5, 0.999))
     writer = SummaryWriter()
 
     gen_losses = []
@@ -155,8 +168,10 @@ if __name__ == "__main__":
     fake_labels_v = torch.zeros(BATCH_SIZE, device=device)
 
     for batch_v in iterate_batches(envs):
-        # generate extra fake samples, input is 4D: batch, filters, x, y
-        gen_input_v = torch.FloatTensor(BATCH_SIZE, LATENT_VECTOR_SIZE, 1, 1).normal_(0, 1).to(device)
+        # fake samples, input is 4D: batch, filters, x, y
+        gen_input_v = torch.FloatTensor(
+            BATCH_SIZE, LATENT_VECTOR_SIZE, 1, 1)
+        gen_input_v.normal_(0, 1).to(device)
         batch_v = batch_v.to(device)
         gen_output_v = net_gener(gen_input_v)
 
@@ -164,7 +179,8 @@ if __name__ == "__main__":
         dis_optimizer.zero_grad()
         dis_output_true_v = net_discr(batch_v)
         dis_output_fake_v = net_discr(gen_output_v.detach())
-        dis_loss = objective(dis_output_true_v, true_labels_v) + objective(dis_output_fake_v, fake_labels_v)
+        dis_loss = objective(dis_output_true_v, true_labels_v) + \
+                   objective(dis_output_fake_v, fake_labels_v)
         dis_loss.backward()
         dis_optimizer.step()
         dis_losses.append(dis_loss.item())
@@ -179,11 +195,17 @@ if __name__ == "__main__":
 
         iter_no += 1
         if iter_no % REPORT_EVERY_ITER == 0:
-            log.info("Iter %d: gen_loss=%.3e, dis_loss=%.3e", iter_no, np.mean(gen_losses), np.mean(dis_losses))
-            writer.add_scalar("gen_loss", np.mean(gen_losses), iter_no)
-            writer.add_scalar("dis_loss", np.mean(dis_losses), iter_no)
+            log.info("Iter %d: gen_loss=%.3e, dis_loss=%.3e",
+                     iter_no, np.mean(gen_losses),
+                     np.mean(dis_losses))
+            writer.add_scalar(
+                "gen_loss", np.mean(gen_losses), iter_no)
+            writer.add_scalar(
+                "dis_loss", np.mean(dis_losses), iter_no)
             gen_losses = []
             dis_losses = []
         if iter_no % SAVE_IMAGE_EVERY_ITER == 0:
-            writer.add_image("fake", vutils.make_grid(gen_output_v.data[:64], normalize=True), iter_no)
-            writer.add_image("real", vutils.make_grid(batch_v.data[:64], normalize=True), iter_no)
+            writer.add_image("fake", vutils.make_grid(
+                gen_output_v.data[:64], normalize=True), iter_no)
+            writer.add_image("real", vutils.make_grid(
+                batch_v.data[:64], normalize=True), iter_no)

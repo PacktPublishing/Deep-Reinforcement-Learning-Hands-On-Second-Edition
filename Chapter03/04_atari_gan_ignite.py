@@ -152,7 +152,9 @@ if __name__ == "__main__":
     fake_labels_v = torch.zeros(BATCH_SIZE, device=device)
 
     def process_batch(trainer, batch):
-        gen_input_v = torch.FloatTensor(BATCH_SIZE, LATENT_VECTOR_SIZE, 1, 1).normal_(0, 1).to(device)
+        gen_input_v = torch.FloatTensor(
+            BATCH_SIZE, LATENT_VECTOR_SIZE, 1, 1)
+        gen_input_v.normal_(0, 1).to(device)
         batch_v = batch.to(device)
         gen_output_v = net_gener(gen_input_v)
 
@@ -160,7 +162,8 @@ if __name__ == "__main__":
         dis_optimizer.zero_grad()
         dis_output_true_v = net_discr(batch_v)
         dis_output_fake_v = net_discr(gen_output_v.detach())
-        dis_loss = objective(dis_output_true_v, true_labels_v) + objective(dis_output_fake_v, fake_labels_v)
+        dis_loss = objective(dis_output_true_v, true_labels_v) + \
+                   objective(dis_output_fake_v, fake_labels_v)
         dis_loss.backward()
         dis_optimizer.step()
 
@@ -172,26 +175,36 @@ if __name__ == "__main__":
         gen_optimizer.step()
 
         if trainer.state.iteration % SAVE_IMAGE_EVERY_ITER == 0:
-            fake_img = vutils.make_grid(gen_output_v.data[:64], normalize=True)
-            trainer.tb.writer.add_image("fake", fake_img, trainer.state.iteration)
-            real_img = vutils.make_grid(batch_v.data[:64], normalize=True)
-            trainer.tb.writer.add_image("real", real_img, trainer.state.iteration)
+            fake_img = vutils.make_grid(
+                gen_output_v.data[:64], normalize=True)
+            trainer.tb.writer.add_image(
+                "fake", fake_img, trainer.state.iteration)
+            real_img = vutils.make_grid(
+                batch_v.data[:64], normalize=True)
+            trainer.tb.writer.add_image(
+                "real", real_img, trainer.state.iteration)
             trainer.tb.writer.flush()
         return dis_loss.item(), gen_loss.item()
 
     engine = Engine(process_batch)
     tb = tb_logger.TensorboardLogger(log_dir=None)
     engine.tb = tb
-    RunningAverage(output_transform=lambda out: out[0]).attach(engine, "avg_loss_gen")
-    RunningAverage(output_transform=lambda out: out[1]).attach(engine, "avg_loss_dis")
+    RunningAverage(output_transform=lambda out: out[0]).\
+        attach(engine, "avg_loss_gen")
+    RunningAverage(output_transform=lambda out: out[1]).\
+        attach(engine, "avg_loss_dis")
 
-    handler = tb_logger.OutputHandler(tag="train", metric_names=['avg_loss_gen', 'avg_loss_dis'])
-    tb.attach(engine, log_handler=handler, event_name=Events.ITERATION_COMPLETED)
+    handler = tb_logger.OutputHandler(tag="train",
+        metric_names=['avg_loss_gen', 'avg_loss_dis'])
+    tb.attach(engine, log_handler=handler,
+              event_name=Events.ITERATION_COMPLETED)
 
     @engine.on(Events.ITERATION_COMPLETED)
     def log_losses(trainer):
         if trainer.state.iteration % REPORT_EVERY_ITER == 0:
-            log.info("%d: gen_loss=%f, dis_loss=%f", trainer.state.iteration,
-                     trainer.state.metrics['avg_loss_gen'], trainer.state.metrics['avg_loss_dis'])
+            log.info("%d: gen_loss=%f, dis_loss=%f",
+                     trainer.state.iteration,
+                     trainer.state.metrics['avg_loss_gen'],
+                     trainer.state.metrics['avg_loss_dis'])
 
     engine.run(data=iterate_batches(envs))
