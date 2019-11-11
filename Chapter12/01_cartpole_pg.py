@@ -94,7 +94,8 @@ if __name__ == "__main__":
         optimizer.zero_grad()
         logits_v = net(states_v)
         log_prob_v = F.log_softmax(logits_v, dim=1)
-        log_prob_actions_v = batch_scale_v * log_prob_v[range(BATCH_SIZE), batch_actions_t]
+        log_p_a_v = log_prob_v[range(BATCH_SIZE), batch_actions_t]
+        log_prob_actions_v = batch_scale_v * log_p_a_v
         loss_policy_v = -log_prob_actions_v.mean()
 
         loss_policy_v.backward(retain_graph=True)
@@ -123,8 +124,10 @@ if __name__ == "__main__":
         writer.add_scalar("loss_policy", loss_policy_v.item(), step_idx)
         writer.add_scalar("loss_total", loss_v.item(), step_idx)
 
-        writer.add_scalar("grad_l2", np.sqrt(np.mean(np.square(grads))), step_idx)
-        writer.add_scalar("grad_max", np.max(np.abs(grads)), step_idx)
+        g_l2 = np.sqrt(np.mean(np.square(grads)))
+        g_max = np.max(np.abs(grads))
+        writer.add_scalar("grad_l2", g_l2, step_idx)
+        writer.add_scalar("grad_max", g_max, step_idx)
         writer.add_scalar("grad_var", np.var(grads), step_idx)
 
         batch_states.clear()

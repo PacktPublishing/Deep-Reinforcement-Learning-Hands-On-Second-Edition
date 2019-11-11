@@ -91,7 +91,8 @@ def filter_batch(batch, percentile):
 
 if __name__ == "__main__":
     random.seed(12345)
-    env = gym.envs.toy_text.frozen_lake.FrozenLakeEnv(is_slippery=False)
+    env = gym.envs.toy_text.frozen_lake.FrozenLakeEnv(
+        is_slippery=False)
     env.spec = gym.spec("FrozenLake-v0")
     env = gym.wrappers.TimeLimit(env, max_episode_steps=100)
     env = DiscreteOneHotWrapper(env)
