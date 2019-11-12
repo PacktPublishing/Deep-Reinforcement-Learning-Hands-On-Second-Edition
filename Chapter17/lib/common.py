@@ -54,5 +54,5 @@ def unpack_batch_ddqn(batch, device="cpu"):
     actions_v = ptan.agent.float32_preprocessor(actions).to(device)
     rewards_v = ptan.agent.float32_preprocessor(rewards).to(device)
     last_states_v = ptan.agent.float32_preprocessor(last_states).to(device)
-    dones_t = torch.ByteTensor(dones).to(device)
+    dones_t = torch.BoolTensor(dones).to(device)
     return states_v, actions_v, rewards_v, dones_t, last_states_v

@@ -9,3 +9,5 @@ pytorch-ignite==0.2.1
 tensorboardX==1.9
 tensorflow==2.0.0
 nltk==3.4.5
+pybullet==2.5.7
+ptan==0.6
