@@ -12,7 +12,7 @@ if __name__ == "__main__":
     logging.basicConfig(format="%(asctime)-15s %(levelname)s %(message)s", level=logging.INFO)
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", required=True,
-                        help="Category to use for training. Empty string to train on full dataset")
+                        help="Category to filter, empty string will use the full dataset")
     parser.add_argument("-m", "--model", required=True, help="Model name to load")
     args = parser.parse_args()
 

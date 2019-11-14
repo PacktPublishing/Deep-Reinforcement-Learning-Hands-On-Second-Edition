@@ -9,11 +9,19 @@ def calc_bleu_many(cand_seq, ref_sequences):
                                     smoothing_function=sf.method1,
                                     weights=(0.5, 0.5))
 
+
 def calc_bleu(cand_seq, ref_seq):
     return calc_bleu_many(cand_seq, [ref_seq])
+
 
 def tokenize(s):
     return TweetTokenizer(preserve_case=False).tokenize(s)
 
+
 def untokenize(words):
-    return "".join([" " + i if not i.startswith("'") and i not in string.punctuation else i for i in words]).strip()
+    to_pad = lambda t: not t.startswith("'") and \
+                       t not in string.punctuation
+    return "".join([
+        (" " + i) if to_pad(i) else i
+        for i in words
+    ]).strip()
