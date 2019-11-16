@@ -7,3 +7,4 @@ set -x
 ../plot.py -i sc1-bleu-sample.csv -o sc1-bleu-sample.svg -x Steps -y "BLEU from sampling"
 ../plot.py -i sc1-bleu-test.csv -o sc1-bleu-test.svg -x Steps -y "BLEU on test"
 ../plot.py -i sc1-skipped-samples.csv -o sc1-skipped-samples.svg -x Steps -y "Skipped samples"
+
