@@ -17,7 +17,7 @@ import ptan
 SAVES_DIR = "saves"
 
 BATCH_SIZE = 16
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 5e-4
 MAX_EPOCHES = 10000
 
 log = logging.getLogger("train")
