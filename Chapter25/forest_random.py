@@ -44,8 +44,10 @@ if __name__ == "__main__":
                 tiger_obs[0].shape, tiger_obs[1].shape))
             print("Deer obs: %s, %s" % (
                 deer_obs[0].shape, deer_obs[1].shape))
-        print("%d: HP deers:  %s" % (step_idx, deer_obs[0][:, 1, 1, 2]))
-        print("%d: HP tigers: %s" % (step_idx, tiger_obs[0][:, 4, 4, 2]))
+        print("%d: HP deers:  %s" % (
+            step_idx, deer_obs[0][:, 1, 1, 2]))
+        print("%d: HP tigers: %s" % (
+            step_idx, tiger_obs[0][:, 4, 4, 2]))
         deer_act = models[0].infer_action(deer_obs)
         tiger_act = models[1].infer_action(tiger_obs)
 
