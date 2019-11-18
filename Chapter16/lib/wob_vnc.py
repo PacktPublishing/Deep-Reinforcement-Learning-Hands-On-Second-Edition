@@ -45,10 +45,13 @@ class MiniWoBCropper(vectorized.ObservationWrapper):
             if obs is None:
                 res.append(obs)
                 continue
-            img = obs['vision'][Y_OFS:Y_OFS+HEIGHT, X_OFS:X_OFS+WIDTH, :]
+            img = obs['vision'][Y_OFS:Y_OFS+HEIGHT,
+                                X_OFS:X_OFS+WIDTH, :]
             img = np.transpose(img, (2, 0, 1))
             if self.keep_text:
-                text = " ".join(map(lambda d: d.get('instruction', ''), obs.get('text', [{}])))
+                t_fun = lambda d: d.get('instruction', ''), \
+                                  obs.get('text', [{}])
+                text = " ".join(map(t_fun))
                 res.append((img, text))
             else:
                 res.append(img)

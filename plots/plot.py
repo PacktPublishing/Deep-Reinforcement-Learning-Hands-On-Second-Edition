@@ -16,6 +16,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--legend", action='append', help="Set label for legend")
     parser.add_argument("--ylog", action='store_true', default=False, help="Set y axis log scale")
     parser.add_argument("--lloc", default='upper left', help="Sets legend location")
+    parser.add_argument("--max-dt", type=float, default=None, help="Maximum length in hours, default=No limit")
     args = parser.parse_args()
 
     data = []
@@ -33,6 +34,8 @@ if __name__ == "__main__":
                 if min_time is None:
                     min_time = t
                 h = float(t - min_time)/3600
+                if args.max_dt is not None and args.max_dt < h:
+                    continue
                 hours.append(h)
                 s = float(row["Step"])
                 steps.append(s)
