@@ -186,7 +186,9 @@ def train_demo(net, optimizer, batch, writer, step_idx,
     Train net on demonstration batch
     """
     batch_obs, batch_act = zip(*batch)
-    batch_v = preprocessor(batch_obs).to(device)
+    batch_v = preprocessor(batch_obs)
+    if torch.is_tensor(batch_v):
+        batch_v = batch_v.to(device)
     optimizer.zero_grad()
     ref_actions_v = torch.LongTensor(batch_act).to(device)
     policy_v = net(batch_v)[0]

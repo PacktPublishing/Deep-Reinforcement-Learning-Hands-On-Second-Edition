@@ -16,7 +16,15 @@ set -x
 #../plot.py -i s-demo-loss-total.csv -i s-nodemo-loss-total.csv -o 22-01-loss-total.svg -x Steps -y "Total loss" -l "with demo" -l "without demo" --lloc 'upper right'
 #../plot.py -i s-demo-loss-ent.csv -i s-nodemo-loss-ent.csv -o 22-02-loss-ent.svg -x Steps -y "Entropy loss" -l "with demo" -l "without demo" --lloc 'upper right'
 #../plot.py -i s-demo-episode-steps.csv -i s-nodemo-episode-steps.csv -o 22-episode-steps.svg -x Steps -y "Episode steps" -l "with demo" -l "without demo" --lloc 'upper right'
-../plot.py -i t3-reward100.csv -o 23-reward100.svg -x Steps -y "Mean reward"
-../plot.py -i t3-loss-total.csv -o 24-01-loss-total.svg -x Steps -y "Total loss"
-../plot.py -i t3-loss-ent.csv -o 24-02-loss-ent.svg -x Steps -y "Entropy loss"
-../plot.py -i t3-episode-steps.csv -o 25-episode-steps.svg -x Steps -y "Episode steps"
+#../plot.py -i t3-reward100.csv -o 23-reward100.svg -x Steps -y "Mean reward"
+#../plot.py -i t3-loss-total.csv -o 24-01-loss-total.svg -x Steps -y "Total loss"
+#../plot.py -i t3-loss-ent.csv -o 24-02-loss-ent.svg -x Steps -y "Entropy loss"
+#../plot.py -i t3-episode-steps.csv -o 25-episode-steps.svg -x Steps -y "Episode steps"
+../plot.py -i cb-nomm-reward100.csv -o 32-reward100.svg -x Steps -y "Mean reward"
+../plot.py -i cb-nomm-loss-total.csv -o 33-01-loss-total.svg -x Steps -y "Total loss"
+../plot.py -i cb-nomm-loss-ent.csv -o 33-02-loss-ent.svg -x Steps -y "Entropy loss"
+../plot.py -i cb-nomm-episode-steps.csv -o 34-episode-steps.svg -x Steps -y "Episode steps"
+../plot.py -i cb-mm-reward100.csv -o 35-reward100.svg -x Steps -y "Mean reward"
+../plot.py -i cb-mm-loss-total.csv -o 36-01-loss-total.svg -x Steps -y "Total loss"
+../plot.py -i cb-mm-loss-ent.csv -o 36-02-loss-ent.svg -x Steps -y "Entropy loss"
+../plot.py -i cb-mm-episode-steps.csv -o 37-episode-steps.svg -x Steps -y "Episode steps"
