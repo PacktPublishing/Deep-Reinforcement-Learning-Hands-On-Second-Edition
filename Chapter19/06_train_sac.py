@@ -13,19 +13,20 @@ from lib import model, common
 
 import torch
 import torch.optim as optim
+import torch.distributions as distrib
 import torch.nn.functional as F
 
 
 ENV_ID = "RoboschoolHalfCheetah-v1"
 GAMMA = 0.99
 BATCH_SIZE = 64
-LR_ACTS = 1e-5
+LR_ACTS = 1e-4
 LR_VALS = 1e-4
 REPLAY_SIZE = 100000
 REPLAY_INITIAL = 10000
 SAC_ENTROPY_ALPHA = 0.1
 
-TEST_ITERS = 100000
+TEST_ITERS = 10000
 
 
 def test_net(net, env, count=10, device="cpu"):
@@ -76,7 +77,7 @@ if __name__ == "__main__":
     tgt_crt_net = ptan.agent.TargetNet(crt_net)
 
     writer = SummaryWriter(comment="-sac_" + args.name)
-    agent = model.AgentA2C(act_net, device=device)
+    agent = model.AgentDDPG(act_net, device=device)
     exp_source = ptan.experience.ExperienceSourceFirstLast(
         env, agent, gamma=GAMMA, steps_count=1)
     buffer = ptan.experience.ExperienceReplayBuffer(
@@ -105,8 +106,9 @@ if __name__ == "__main__":
                 batch = buffer.sample(BATCH_SIZE)
                 states_v, actions_v, ref_vals_v, ref_q_v = \
                     common.unpack_batch_sac(
-                        batch, crt_net, twinq_net, act_net,
-                        GAMMA, SAC_ENTROPY_ALPHA, device)
+                        batch, tgt_crt_net.target_model,
+                        twinq_net, act_net, GAMMA,
+                        SAC_ENTROPY_ALPHA, device)
 
                 tb_tracker.track("ref_v", ref_vals_v.mean(), frame_idx)
                 tb_tracker.track("ref_q", ref_q_v.mean(), frame_idx)
@@ -133,10 +135,8 @@ if __name__ == "__main__":
                 # Actor
                 act_opt.zero_grad()
                 acts_v = act_net(states_v)
-                ent_v = (-(torch.log(2*math.pi*torch.exp(
-                    act_net.logstd)) + 1)/2).mean()
                 q_out_v, _ = twinq_net(states_v, acts_v)
-                act_loss = -(q_out_v - SAC_ENTROPY_ALPHA * ent_v).mean()
+                act_loss = -q_out_v.mean()
                 act_loss.backward()
                 act_opt.step()
                 tb_tracker.track("loss_act", act_loss, frame_idx)

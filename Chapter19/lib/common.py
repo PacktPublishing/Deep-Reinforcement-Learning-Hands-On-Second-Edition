@@ -49,7 +49,7 @@ def unpack_batch_sac(batch, val_net, twinq_net, policy_net,
     states_v, actions_v, ref_q_v = \
         unpack_batch_a2c(batch, val_net, gamma, device)
 
-    # references for the Twin Q network
+    # references for the critic network
     mu_v = policy_net(states_v)
     act_dist = distr.Normal(mu_v, torch.exp(policy_net.logstd))
     acts_v = act_dist.sample()
