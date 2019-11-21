@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.distributions as distr
 
 import ptan
 
@@ -36,3 +37,25 @@ def unpack_batch_a2c(batch, net, last_val_gamma, device="cpu"):
 
     ref_vals_v = torch.FloatTensor(rewards_np).to(device)
     return states_v, actions_v, ref_vals_v
+
+
+@torch.no_grad()
+def unpack_batch_sac(batch, val_net, twinq_net, policy_net,
+                     gamma: float, ent_alpha: float,
+                     device="cpu"):
+    """
+    Unpack Soft Actor-Critic batch
+    """
+    states_v, actions_v, ref_q_v = \
+        unpack_batch_a2c(batch, val_net, gamma, device)
+
+    # references for the Twin Q network
+    mu_v = policy_net(states_v)
+    act_dist = distr.Normal(mu_v, torch.exp(policy_net.logstd))
+    acts_v = act_dist.sample()
+    q1_v, q2_v = twinq_net(states_v, acts_v)
+    # element-wise minimum
+    ref_vals_v = torch.min(q1_v, q2_v).squeeze() - \
+                 ent_alpha * act_dist.log_prob(acts_v).sum(dim=1)
+    return states_v, actions_v, ref_vals_v, ref_q_v
+

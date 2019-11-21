@@ -40,6 +40,32 @@ class ModelCritic(nn.Module):
         return self.value(x)
 
 
+class ModelSACTwinQ(nn.Module):
+    def __init__(self, obs_size, act_size):
+        super(ModelSACTwinQ, self).__init__()
+
+        self.q1 = nn.Sequential(
+            nn.Linear(obs_size + act_size, HID_SIZE),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE, HID_SIZE),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE, 1),
+        )
+
+        self.q2 = nn.Sequential(
+            nn.Linear(obs_size + act_size, HID_SIZE),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE, HID_SIZE),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE, 1),
+        )
+
+    def forward(self, obs, act):
+        x = torch.cat([obs, act], dim=1)
+        return self.q1(x), self.q2(x)
+
+
+
 class AgentA2C(ptan.agent.BaseAgent):
     def __init__(self, net, device="cpu"):
         self.net = net
