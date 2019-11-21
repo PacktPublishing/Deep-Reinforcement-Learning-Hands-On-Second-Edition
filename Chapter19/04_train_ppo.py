@@ -28,7 +28,7 @@ PPO_EPS = 0.2
 PPO_EPOCHES = 10
 PPO_BATCH_SIZE = 64
 
-TEST_ITERS = 1000
+TEST_ITERS = 100000
 
 
 def test_net(net, env, count=10, device="cpu"):
@@ -90,6 +90,8 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", default=False, action='store_true', help='Enable CUDA')
     parser.add_argument("-n", "--name", required=True, help="Name of the run")
     parser.add_argument("-e", "--env", default=ENV_ID, help="Environment id, default=" + ENV_ID)
+    parser.add_argument("--lrc", default=LEARNING_RATE_CRITIC, type=float, help="Critic learning rate")
+    parser.add_argument("--lra", default=LEARNING_RATE_ACTOR, type=float, help="Actor learning rate")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
@@ -108,8 +110,8 @@ if __name__ == "__main__":
     agent = model.AgentA2C(net_act, device=device)
     exp_source = ptan.experience.ExperienceSource(env, agent, steps_count=1)
 
-    opt_act = optim.Adam(net_act.parameters(), lr=LEARNING_RATE_ACTOR)
-    opt_crt = optim.Adam(net_crt.parameters(), lr=LEARNING_RATE_CRITIC)
+    opt_act = optim.Adam(net_act.parameters(), lr=args.lra)
+    opt_crt = optim.Adam(net_crt.parameters(), lr=args.lrc)
 
     trajectory = []
     best_reward = None

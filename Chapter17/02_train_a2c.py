@@ -32,7 +32,8 @@ def test_net(net, env, count=10, device="cpu"):
     for _ in range(count):
         obs = env.reset()
         while True:
-            obs_v = ptan.agent.float32_preprocessor([obs]).to(device)
+            obs_v = ptan.agent.float32_preprocessor([obs])
+            obs_v = obs_v.to(device)
             mu_v = net(obs_v)[0]
             action = mu_v.squeeze(dim=0).data.cpu().numpy()
             action = np.clip(action, -1, 1)
@@ -103,20 +104,27 @@ if __name__ == "__main__":
                     continue
 
                 states_v, actions_v, vals_ref_v = \
-                    common.unpack_batch_a2c(batch, net, last_val_gamma=GAMMA ** REWARD_STEPS, device=device)
+                    common.unpack_batch_a2c(
+                        batch, net, device=device,
+                        last_val_gamma=GAMMA ** REWARD_STEPS)
                 batch.clear()
 
                 optimizer.zero_grad()
                 mu_v, var_v, value_v = net(states_v)
 
-                loss_value_v = F.mse_loss(value_v.squeeze(-1), vals_ref_v)
+                loss_value_v = F.mse_loss(
+                    value_v.squeeze(-1), vals_ref_v)
 
-                adv_v = vals_ref_v.unsqueeze(dim=-1) - value_v.detach()
-                log_prob_v = adv_v * calc_logprob(mu_v, var_v, actions_v)
+                adv_v = vals_ref_v.unsqueeze(dim=-1) - \
+                        value_v.detach()
+                log_prob_v = adv_v * calc_logprob(
+                    mu_v, var_v, actions_v)
                 loss_policy_v = -log_prob_v.mean()
-                entropy_loss_v = ENTROPY_BETA * (-(torch.log(2*math.pi*var_v) + 1)/2).mean()
+                ent_v = -(torch.log(2*math.pi*var_v) + 1)/2
+                entropy_loss_v = ENTROPY_BETA * ent_v.mean()
 
-                loss_v = loss_policy_v + entropy_loss_v + loss_value_v
+                loss_v = loss_policy_v + entropy_loss_v + \
+                         loss_value_v
                 loss_v.backward()
                 optimizer.step()
 

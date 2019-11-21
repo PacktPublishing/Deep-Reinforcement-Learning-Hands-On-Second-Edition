@@ -26,7 +26,7 @@ LEARNING_RATE_CRITIC = 1e-3
 TRPO_MAX_KL = 0.01
 TRPO_DAMPING = 0.1
 
-TEST_ITERS = 1000
+TEST_ITERS = 100000
 
 
 def test_net(net, env, count=10, device="cpu"):
@@ -87,6 +87,8 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", default=False, action='store_true', help='Enable CUDA')
     parser.add_argument("-n", "--name", required=True, help="Name of the run")
     parser.add_argument("-e", "--env", default=ENV_ID, help="Environment id, default=" + ENV_ID)
+    parser.add_argument("--lr", default=LEARNING_RATE_CRITIC, type=float, help="Critic learning rate")
+    parser.add_argument("--maxkl", default=TRPO_MAX_KL, type=float, help="Maximum KL divergence")
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
@@ -105,7 +107,7 @@ if __name__ == "__main__":
     agent = model.AgentA2C(net_act, device=device)
     exp_source = ptan.experience.ExperienceSource(env, agent, steps_count=1)
 
-    opt_crt = optim.Adam(net_crt.parameters(), lr=LEARNING_RATE_CRITIC)
+    opt_crt = optim.Adam(net_crt.parameters(), lr=args.lr)
 
     trajectory = []
     best_reward = None
@@ -180,7 +182,7 @@ if __name__ == "__main__":
                 kl = logstd_v - logstd0_v + (std0_v ** 2 + (mu0_v - mu_v) ** 2) / (2.0 * std_v ** 2) - 0.5
                 return kl.sum(1, keepdim=True)
 
-            trpo.trpo_step(net_act, get_loss, get_kl, TRPO_MAX_KL, TRPO_DAMPING, device=device)
+            trpo.trpo_step(net_act, get_loss, get_kl, args.maxkl, TRPO_DAMPING, device=device)
 
             trajectory.clear()
             writer.add_scalar("advantage", traj_adv_v.mean().item(), step_idx)
