@@ -2,6 +2,7 @@ import ptan
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.distributions as distr
 
 HID_SIZE = 64
 
@@ -22,6 +23,31 @@ class ModelActor(nn.Module):
 
     def forward(self, x):
         return self.mu(x)
+
+
+class ModelSACActor(nn.Module):
+    def __init__(self, obs_size, act_size):
+        super(ModelSACActor, self).__init__()
+
+        self.mu = nn.Sequential(
+            nn.Linear(obs_size, HID_SIZE),
+            nn.Tanh(),
+            nn.Linear(HID_SIZE, HID_SIZE),
+            nn.Tanh(),
+            nn.Linear(HID_SIZE, act_size),
+            nn.Tanh(),
+        )
+
+        self.logstd = nn.Sequential(
+            nn.Linear(obs_size, HID_SIZE),
+            nn.Tanh(),
+            nn.Linear(HID_SIZE, HID_SIZE),
+            nn.Tanh(),
+            nn.Linear(HID_SIZE, act_size),
+        )
+
+    def forward(self, x):
+        return self.mu(x), self.logstd(x)
 
 
 class ModelCritic(nn.Module):
@@ -81,7 +107,7 @@ class AgentA2C(ptan.agent.BaseAgent):
         return actions, agent_states
 
 
-class AgentDDPG(ptan.agent.BaseAgent):
+class AgentSAC(ptan.agent.BaseAgent):
     """
     Agent implementing Orstein-Uhlenbeck exploration process
     """
@@ -99,11 +125,15 @@ class AgentDDPG(ptan.agent.BaseAgent):
     def initial_state(self):
         return None
 
+    @torch.no_grad()
     def __call__(self, states, agent_states):
         states_v = ptan.agent.float32_preprocessor(states)
         states_v = states_v.to(self.device)
-        mu_v = self.net(states_v)
-        actions = mu_v.data.cpu().numpy()
+        mu_v, logstd_v = self.net(states_v)
+        # distr_v = distr.Normal(mu_v, torch.exp(logstd_v))
+        # actions_v = distr_v.sample()
+        actions_v = mu_v
+        actions = actions_v.data.cpu().numpy()
 
         if self.ou_enabled and self.ou_epsilon > 0:
             new_a_states = []

@@ -50,8 +50,8 @@ def unpack_batch_sac(batch, val_net, twinq_net, policy_net,
         unpack_batch_a2c(batch, val_net, gamma, device)
 
     # references for the critic network
-    mu_v = policy_net(states_v)
-    act_dist = distr.Normal(mu_v, torch.exp(policy_net.logstd))
+    mu_v, logstd_v = policy_net(states_v)
+    act_dist = distr.Normal(mu_v, torch.exp(logstd_v))
     acts_v = act_dist.sample()
     q1_v, q2_v = twinq_net(states_v, acts_v)
     # element-wise minimum

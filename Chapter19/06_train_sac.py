@@ -24,7 +24,7 @@ LR_ACTS = 1e-4
 LR_VALS = 1e-4
 REPLAY_SIZE = 100000
 REPLAY_INITIAL = 10000
-SAC_ENTROPY_ALPHA = 0.1
+SAC_ENTROPY_ALPHA = 0.0001
 
 TEST_ITERS = 10000
 
@@ -36,7 +36,7 @@ def test_net(net, env, count=10, device="cpu"):
         obs = env.reset()
         while True:
             obs_v = ptan.agent.float32_preprocessor([obs]).to(device)
-            mu_v = net(obs_v)
+            mu_v, _ = net(obs_v)
             action = mu_v.squeeze(dim=0).data.cpu().numpy()
             action = np.clip(action, -1, 1)
             obs, reward, done, _ = env.step(action)
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     env = gym.make(args.env)
     test_env = gym.make(args.env)
 
-    act_net = model.ModelActor(
+    act_net = model.ModelSACActor(
         env.observation_space.shape[0],
         env.action_space.shape[0]).to(device)
     crt_net = model.ModelCritic(
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     tgt_crt_net = ptan.agent.TargetNet(crt_net)
 
     writer = SummaryWriter(comment="-sac_" + args.name)
-    agent = model.AgentDDPG(act_net, device=device)
+    agent = model.AgentSAC(act_net, device=device, ou_enabled=True)
     exp_source = ptan.experience.ExperienceSourceFirstLast(
         env, agent, gamma=GAMMA, steps_count=1)
     buffer = ptan.experience.ExperienceReplayBuffer(
@@ -134,9 +134,15 @@ if __name__ == "__main__":
 
                 # Actor
                 act_opt.zero_grad()
-                acts_v = act_net(states_v)
+                mu_v, logstd_v = act_net(states_v)
+                distr_v = distrib.Normal(mu_v, torch.exp(logstd_v))
+                # acts_v = distr_v.sample()
+                acts_v = mu_v
                 q_out_v, _ = twinq_net(states_v, acts_v)
-                act_loss = -q_out_v.mean()
+                ent_v = SAC_ENTROPY_ALPHA * distr_v.log_prob(acts_v).sum(dim=1)
+                tb_tracker.track("actor_ent", ent_v, frame_idx)
+                tb_tracker.track("actor_q", q_out_v, frame_idx)
+                act_loss = -(q_out_v.squeeze() - ent_v).mean()
                 act_loss.backward()
                 act_opt.step()
                 tb_tracker.track("loss_act", act_loss, frame_idx)
