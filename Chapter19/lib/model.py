@@ -71,12 +71,14 @@ class AgentA2C(ptan.agent.BaseAgent):
         self.device = device
 
     def __call__(self, states, agent_states):
-        states_v = ptan.agent.float32_preprocessor(states).to(self.device)
+        states_v = ptan.agent.float32_preprocessor(states)
+        states_v = states_v.to(self.device)
 
         mu_v = self.net(states_v)
         mu = mu_v.data.cpu().numpy()
         logstd = self.net.logstd.data.cpu().numpy()
-        actions = mu + np.exp(logstd) * np.random.normal(size=logstd.shape)
+        rnd = np.random.normal(size=logstd.shape)
+        actions = mu + np.exp(logstd) * rnd
         actions = np.clip(actions, -1, 1)
         return actions, agent_states
 

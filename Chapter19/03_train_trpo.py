@@ -161,15 +161,18 @@ if __name__ == "__main__":
             # critic step
             opt_crt.zero_grad()
             value_v = net_crt(traj_states_v)
-            loss_value_v = F.mse_loss(value_v.squeeze(-1), traj_ref_v)
+            loss_value_v = F.mse_loss(
+                value_v.squeeze(-1), traj_ref_v)
             loss_value_v.backward()
             opt_crt.step()
 
             # actor step
             def get_loss():
                 mu_v = net_act(traj_states_v)
-                logprob_v = calc_logprob(mu_v, net_act.logstd, traj_actions_v)
-                action_loss_v = -traj_adv_v.unsqueeze(dim=-1) * torch.exp(logprob_v - old_logprob_v)
+                logprob_v = calc_logprob(
+                    mu_v, net_act.logstd, traj_actions_v)
+                dp_v = torch.exp(logprob_v - old_logprob_v)
+                action_loss_v = -traj_adv_v.unsqueeze(dim=-1)*dp_v
                 return action_loss_v.mean()
 
             def get_kl():
@@ -179,10 +182,13 @@ if __name__ == "__main__":
                 logstd0_v = logstd_v.detach()
                 std_v = torch.exp(logstd_v)
                 std0_v = std_v.detach()
-                kl = logstd_v - logstd0_v + (std0_v ** 2 + (mu0_v - mu_v) ** 2) / (2.0 * std_v ** 2) - 0.5
+                v = (std0_v ** 2 + (mu0_v - mu_v) ** 2) / \
+                    (2.0 * std_v ** 2)
+                kl = logstd_v - logstd0_v + v - 0.5
                 return kl.sum(1, keepdim=True)
 
-            trpo.trpo_step(net_act, get_loss, get_kl, args.maxkl, TRPO_DAMPING, device=device)
+            trpo.trpo_step(net_act, get_loss, get_kl, args.maxkl,
+                           TRPO_DAMPING, device=device)
 
             trajectory.clear()
             writer.add_scalar("advantage", traj_adv_v.mean().item(), step_idx)

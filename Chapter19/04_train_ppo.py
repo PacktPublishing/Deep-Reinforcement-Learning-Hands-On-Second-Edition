@@ -21,8 +21,8 @@ GAMMA = 0.99
 GAE_LAMBDA = 0.95
 
 TRAJECTORY_SIZE = 2049
-LEARNING_RATE_ACTOR = 1e-4
-LEARNING_RATE_CRITIC = 1e-3
+LEARNING_RATE_ACTOR = 1e-5
+LEARNING_RATE_CRITIC = 1e-4
 
 PPO_EPS = 0.2
 PPO_EPOCHES = 10
@@ -69,7 +69,8 @@ def calc_adv_ref(trajectory, net_crt, states_v, device="cpu"):
     last_gae = 0.0
     result_adv = []
     result_ref = []
-    for val, next_val, (exp,) in zip(reversed(values[:-1]), reversed(values[1:]),
+    for val, next_val, (exp,) in zip(reversed(values[:-1]),
+                                     reversed(values[1:]),
                                      reversed(trajectory[:-1])):
         if exp.done:
             delta = exp.reward - val
@@ -80,9 +81,9 @@ def calc_adv_ref(trajectory, net_crt, states_v, device="cpu"):
         result_adv.append(last_gae)
         result_ref.append(last_gae + val)
 
-    adv_v = torch.FloatTensor(list(reversed(result_adv))).to(device)
-    ref_v = torch.FloatTensor(list(reversed(result_ref))).to(device)
-    return adv_v, ref_v
+    adv_v = torch.FloatTensor(list(reversed(result_adv)))
+    ref_v = torch.FloatTensor(list(reversed(result_ref)))
+    return adv_v.to(device), ref_v.to(device)
 
 
 if __name__ == "__main__":
@@ -144,14 +145,19 @@ if __name__ == "__main__":
 
             traj_states = [t[0].state for t in trajectory]
             traj_actions = [t[0].action for t in trajectory]
-            traj_states_v = torch.FloatTensor(traj_states).to(device)
-            traj_actions_v = torch.FloatTensor(traj_actions).to(device)
-            traj_adv_v, traj_ref_v = calc_adv_ref(trajectory, net_crt, traj_states_v, device=device)
+            traj_states_v = torch.FloatTensor(traj_states)
+            traj_states_v = traj_states_v.to(device)
+            traj_actions_v = torch.FloatTensor(traj_actions)
+            traj_actions_v = traj_actions_v.to(device)
+            traj_adv_v, traj_ref_v = calc_adv_ref(
+                trajectory, net_crt, traj_states_v, device=device)
             mu_v = net_act(traj_states_v)
-            old_logprob_v = calc_logprob(mu_v, net_act.logstd, traj_actions_v)
+            old_logprob_v = calc_logprob(
+                mu_v, net_act.logstd, traj_actions_v)
 
             # normalize advantages
-            traj_adv_v = (traj_adv_v - torch.mean(traj_adv_v)) / torch.std(traj_adv_v)
+            traj_adv_v = traj_adv_v - torch.mean(traj_adv_v)
+            traj_adv_v /= torch.std(traj_adv_v)
 
             # drop last entry from the trajectory, an our adv and ref value calculated without it
             trajectory = trajectory[:-1]
@@ -162,28 +168,39 @@ if __name__ == "__main__":
             count_steps = 0
 
             for epoch in range(PPO_EPOCHES):
-                for batch_ofs in range(0, len(trajectory), PPO_BATCH_SIZE):
-                    states_v = traj_states_v[batch_ofs:batch_ofs + PPO_BATCH_SIZE]
-                    actions_v = traj_actions_v[batch_ofs:batch_ofs + PPO_BATCH_SIZE]
-                    batch_adv_v = traj_adv_v[batch_ofs:batch_ofs + PPO_BATCH_SIZE].unsqueeze(-1)
-                    batch_ref_v = traj_ref_v[batch_ofs:batch_ofs + PPO_BATCH_SIZE]
-                    batch_old_logprob_v = old_logprob_v[batch_ofs:batch_ofs + PPO_BATCH_SIZE]
+                for batch_ofs in range(0, len(trajectory),
+                                       PPO_BATCH_SIZE):
+                    batch_l = batch_ofs + PPO_BATCH_SIZE
+                    states_v = traj_states_v[batch_ofs:batch_l]
+                    actions_v = traj_actions_v[batch_ofs:batch_l]
+                    batch_adv_v = traj_adv_v[batch_ofs:batch_l]
+                    batch_adv_v = batch_adv_v.unsqueeze(-1)
+                    batch_ref_v = traj_ref_v[batch_ofs:batch_l]
+                    batch_old_logprob_v = \
+                        old_logprob_v[batch_ofs:batch_l]
 
                     # critic training
                     opt_crt.zero_grad()
                     value_v = net_crt(states_v)
-                    loss_value_v = F.mse_loss(value_v.squeeze(-1), batch_ref_v)
+                    loss_value_v = F.mse_loss(
+                        value_v.squeeze(-1), batch_ref_v)
                     loss_value_v.backward()
                     opt_crt.step()
 
                     # actor training
                     opt_act.zero_grad()
                     mu_v = net_act(states_v)
-                    logprob_pi_v = calc_logprob(mu_v, net_act.logstd, actions_v)
-                    ratio_v = torch.exp(logprob_pi_v - batch_old_logprob_v)
+                    logprob_pi_v = calc_logprob(
+                        mu_v, net_act.logstd, actions_v)
+                    ratio_v = torch.exp(
+                        logprob_pi_v - batch_old_logprob_v)
                     surr_obj_v = batch_adv_v * ratio_v
-                    clipped_surr_v = batch_adv_v * torch.clamp(ratio_v, 1.0 - PPO_EPS, 1.0 + PPO_EPS)
-                    loss_policy_v = -torch.min(surr_obj_v, clipped_surr_v).mean()
+                    c_ratio_v = torch.clamp(ratio_v,
+                                            1.0 - PPO_EPS,
+                                            1.0 + PPO_EPS)
+                    clipped_surr_v = batch_adv_v * c_ratio_v
+                    loss_policy_v = -torch.min(
+                        surr_obj_v, clipped_surr_v).mean()
                     loss_policy_v.backward()
                     opt_act.step()
 
