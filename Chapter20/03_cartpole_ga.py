@@ -44,7 +44,8 @@ def evaluate(env, net):
 def mutate_parent(net):
     new_net = copy.deepcopy(net)
     for p in new_net.parameters():
-        noise_t = torch.tensor(np.random.normal(size=p.data.size()).astype(np.float32))
+        noise = np.random.normal(size=p.data.size())
+        noise_t = torch.FloatTensor(noise)
         p.data += NOISE_STD * noise_t
     return new_net
 
@@ -72,7 +73,8 @@ if __name__ == "__main__":
         writer.add_scalar("reward_mean", reward_mean, gen_idx)
         writer.add_scalar("reward_std", reward_std, gen_idx)
         writer.add_scalar("reward_max", reward_max, gen_idx)
-        print("%d: reward_mean=%.2f, reward_max=%.2f, reward_std=%.2f" % (
+        print("%d: reward_mean=%.2f, reward_max=%.2f, "
+              "reward_std=%.2f" % (
             gen_idx, reward_mean, reward_max, reward_std))
         if reward_mean > 199:
             print("Solved in %d steps" % gen_idx)
@@ -88,5 +90,4 @@ if __name__ == "__main__":
             fitness = evaluate(env, net)
             population.append((net, fitness))
         gen_idx += 1
-
-    pass
+    writer.close()

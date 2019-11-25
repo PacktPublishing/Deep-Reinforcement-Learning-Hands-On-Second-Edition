@@ -58,20 +58,23 @@ def mutate_net(net, seed, copy_net=True):
     new_net = copy.deepcopy(net) if copy_net else net
     np.random.seed(seed)
     for p in new_net.parameters():
-        noise_t = torch.tensor(np.random.normal(size=p.data.size()).astype(np.float32))
+        noise = np.random.normal(size=p.data.size())
+        noise_t = torch.FloatTensor(noise)
         p.data += NOISE_STD * noise_t
     return new_net
 
 
 def build_net(env, seeds):
     torch.manual_seed(seeds[0])
-    net = Net(env.observation_space.shape[0], env.action_space.shape[0])
+    net = Net(env.observation_space.shape[0],
+              env.action_space.shape[0])
     for seed in seeds[1:]:
         net = mutate_net(net, seed, copy_net=False)
     return net
 
 
-OutputItem = collections.namedtuple('OutputItem', field_names=['seeds', 'reward', 'steps'])
+OutputItem = collections.namedtuple(
+    'OutputItem', field_names=['seeds', 'reward', 'steps'])
 
 
 def worker_func(input_queue, output_queue):
@@ -94,7 +97,8 @@ def worker_func(input_queue, output_queue):
                 net = build_net(env, net_seeds)
             new_cache[net_seeds] = net
             reward, steps = evaluate(env, net)
-            output_queue.put(OutputItem(seeds=net_seeds, reward=reward, steps=steps))
+            output_queue.put(OutputItem(
+                seeds=net_seeds, reward=reward, steps=steps))
         cache = new_cache
 
 
@@ -146,7 +150,8 @@ if __name__ == "__main__":
             for _ in range(SEEDS_PER_WORKER):
                 parent = np.random.randint(PARENTS_COUNT)
                 next_seed = np.random.randint(MAX_SEED)
-                seeds.append(tuple(list(population[parent][0]) + [next_seed]))
+                s = list(population[parent][0]) + [next_seed]
+                seeds.append(tuple(s))
             worker_queue.put(seeds)
         gen_idx += 1
 

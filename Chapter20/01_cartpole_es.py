@@ -49,7 +49,8 @@ def sample_noise(net):
     pos = []
     neg = []
     for p in net.parameters():
-        noise_t = torch.from_numpy(np.random.normal(size=p.data.size()).astype(np.float32))
+        noise = np.random.normal(size=p.data.size())
+        noise_t = torch.FloatTensor(noise)
         pos.append(noise_t)
         neg.append(-noise_t)
     return pos, neg
@@ -118,14 +119,19 @@ if __name__ == "__main__":
             print("Solved in %d steps" % step_idx)
             break
 
-        train_step(net, batch_noise, batch_reward, writer, step_idx)
+        train_step(net, batch_noise, batch_reward,
+                   writer, step_idx)
         writer.add_scalar("reward_mean", m_reward, step_idx)
-        writer.add_scalar("reward_std", np.std(batch_reward), step_idx)
-        writer.add_scalar("reward_max", np.max(batch_reward), step_idx)
-        writer.add_scalar("batch_episodes", len(batch_reward), step_idx)
+        writer.add_scalar("reward_std", np.std(batch_reward),
+                          step_idx)
+        writer.add_scalar("reward_max", np.max(batch_reward),
+                          step_idx)
+        writer.add_scalar("batch_episodes", len(batch_reward),
+                          step_idx)
         writer.add_scalar("batch_steps", batch_steps, step_idx)
         speed = batch_steps / (time.time() - t_start)
         writer.add_scalar("speed", speed, step_idx)
-        print("%d: reward=%.2f, speed=%.2f f/s" % (step_idx, m_reward, speed))
+        print("%d: reward=%.2f, speed=%.2f f/s" % (
+            step_idx, m_reward, speed))
 
     pass
