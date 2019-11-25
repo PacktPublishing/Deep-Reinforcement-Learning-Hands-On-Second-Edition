@@ -47,5 +47,15 @@ set -x
 #../plot.py -i kc-reward.csv -o 18-01-reward100.svg -x Steps -y "Mean train reward"
 #../plot.py -i kc-test-reward.csv -o 18-02-test-reward.svg -x Steps -y "Test reward"
 
-../plot.py -i ka-reward.csv -o 19-01-reward100.svg -x Steps -y "Mean train reward"
-../plot.py -i ka-test-reward.csv -o 19-02-test-reward.svg -x Steps -y "Test reward"
+#../plot.py -i ka-reward.csv -o 19-01-reward100.svg -x Steps -y "Mean train reward"
+#../plot.py -i ka-test-reward.csv -o 19-02-test-reward.svg -x Steps -y "Test reward"
+
+#../plot.py -i sc-reward.csv -o 20-01-reward100.svg -x Steps -y "Mean train reward"
+#../plot.py -i sc-test-reward.csv -o 20-02-test-reward.svg -x Steps -y "Test reward"
+#../plot.py -i sc-reward.csv -i pa-reward.csv -o 21-01-reward-sac-ppo.svg -x Steps -y "Mean train reward" -l "SAC" -l "PPO"
+#../plot.py -i sc-test-reward.csv -i pa-test-reward.csv -o 21-02-test-reward-sac-ppo.svg -x Steps -y "Test reward" -l "SAC" -l "PPO"
+
+../plot.py -i sa-reward.csv -o 22-01-reward100.svg -x Steps -y "Mean train reward"
+../plot.py -i sa-test-reward.csv -o 22-02-test-reward.svg -x Steps -y "Test reward"
+../plot.py -i sa-reward.csv -i pa-reward.csv -o 23-01-reward-sac-ppo.svg -x Steps -y "Mean train reward" -l "SAC" -l "PPO"
+../plot.py -i sa-test-reward.csv -i pa-test-reward.csv -o 23-02-test-reward-sac-ppo.svg -x Steps -y "Test reward" -l "SAC" -l "PPO"

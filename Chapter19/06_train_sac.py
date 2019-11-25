@@ -116,8 +116,10 @@ if __name__ == "__main__":
                 # train TwinQ
                 twinq_opt.zero_grad()
                 q1_v, q2_v = twinq_net(states_v, actions_v)
-                q1_loss_v = F.mse_loss(q1_v.squeeze(), ref_q_v.detach())
-                q2_loss_v = F.mse_loss(q2_v.squeeze(), ref_q_v.detach())
+                q1_loss_v = F.mse_loss(q1_v.squeeze(),
+                                       ref_q_v.detach())
+                q2_loss_v = F.mse_loss(q2_v.squeeze(),
+                                       ref_q_v.detach())
                 q_loss_v = q1_loss_v + q2_loss_v
                 q_loss_v.backward()
                 twinq_opt.step()
@@ -127,7 +129,8 @@ if __name__ == "__main__":
                 # Critic
                 crt_opt.zero_grad()
                 val_v = crt_net(states_v)
-                v_loss_v = F.mse_loss(val_v.squeeze(), ref_vals_v.detach())
+                v_loss_v = F.mse_loss(val_v.squeeze(),
+                                      ref_vals_v.detach())
                 v_loss_v.backward()
                 crt_opt.step()
                 tb_tracker.track("loss_v", v_loss_v, frame_idx)
