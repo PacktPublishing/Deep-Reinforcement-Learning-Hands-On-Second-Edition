@@ -22,7 +22,8 @@ class EnvironmentModel(nn.Module):
         # input color planes will be equal to frames plus one-hot encoded actions
         n_planes = input_shape[0] + n_actions
         self.conv1 = nn.Sequential(
-            nn.Conv2d(n_planes, 64, kernel_size=4, stride=4, padding=1),
+            nn.Conv2d(n_planes, 64, kernel_size=4,
+                      stride=4, padding=1),
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -32,7 +33,8 @@ class EnvironmentModel(nn.Module):
             nn.ReLU()
         )
         # output is one single frame with delta from the current frame
-        self.deconv = nn.ConvTranspose2d(64, 1, kernel_size=4, stride=4, padding=0)
+        self.deconv = nn.ConvTranspose2d(
+            64, 1, kernel_size=4, stride=4, padding=0)
 
         self.reward_conv = nn.Sequential(
             nn.Conv2d(64, 64, kernel_size=3),
@@ -43,7 +45,8 @@ class EnvironmentModel(nn.Module):
             nn.ReLU()
         )
 
-        rw_conv_out = self._get_reward_conv_out((n_planes, ) + input_shape[1:])
+        rw_conv_out = self._get_reward_conv_out(
+            (n_planes, ) + input_shape[1:])
         self.reward_fc = nn.Sequential(
             nn.Linear(rw_conv_out, 128),
             nn.ReLU(),
@@ -57,7 +60,10 @@ class EnvironmentModel(nn.Module):
 
     def forward(self, imgs, actions):
         batch_size = actions.size()[0]
-        act_planes_v = torch.FloatTensor(batch_size, self.n_actions, *self.input_shape[1:]).zero_().to(actions.device)
+        act_planes_v = torch.FloatTensor(
+            batch_size, self.n_actions, *self.input_shape[1:])
+        act_planes_v.zero_()
+        act_planes_v = act_planes_v.to(actions.device)
         act_planes_v[range(batch_size), actions] = 1.0
         comb_input_v = torch.cat((imgs, act_planes_v), dim=1)
         c1_out = self.conv1(comb_input_v)
@@ -74,7 +80,8 @@ class RolloutEncoder(nn.Module):
         super(RolloutEncoder, self).__init__()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(input_shape[0], 32, kernel_size=8, stride=4),
+            nn.Conv2d(input_shape[0], 32,
+                      kernel_size=8, stride=4),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),
@@ -84,7 +91,9 @@ class RolloutEncoder(nn.Module):
 
         conv_out_size = self._get_conv_out(input_shape)
 
-        self.rnn = nn.LSTM(input_size=conv_out_size+1, hidden_size=hidden_size, batch_first=False)
+        self.rnn = nn.LSTM(input_size=conv_out_size+1,
+                           hidden_size=hidden_size,
+                           batch_first=False)
 
     def _get_conv_out(self, shape):
         o = self.conv(torch.zeros(1, *shape))
@@ -106,14 +115,16 @@ class RolloutEncoder(nn.Module):
 
 
 class I2A(nn.Module):
-    def __init__(self, input_shape, n_actions, net_em, net_policy, rollout_steps):
+    def __init__(self, input_shape, n_actions,
+                 net_em, net_policy, rollout_steps):
         super(I2A, self).__init__()
 
         self.n_actions = n_actions
         self.rollout_steps = rollout_steps
 
         self.conv = nn.Sequential(
-            nn.Conv2d(input_shape[0], 32, kernel_size=8, stride=4),
+            nn.Conv2d(input_shape[0], 32,
+                      kernel_size=8, stride=4),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),
@@ -133,7 +144,8 @@ class I2A(nn.Module):
 
         # used for rollouts
         self.encoder = RolloutEncoder(EM_OUT_SHAPE)
-        self.action_selector = ptan.actions.ProbabilityActionSelector()
+        self.action_selector = \
+            ptan.actions.ProbabilityActionSelector()
         # save refs without registering
         object.__setattr__(self, "net_em", net_em)
         object.__setattr__(self, "net_policy", net_policy)
@@ -154,17 +166,22 @@ class I2A(nn.Module):
         batch_size = batch.size()[0]
         batch_rest = batch.size()[1:]
         if batch_size == 1:
-            obs_batch_v = batch.expand(batch_size * self.n_actions, *batch_rest)
+            obs_batch_v = batch.expand(
+                batch_size * self.n_actions, *batch_rest)
         else:
             obs_batch_v = batch.unsqueeze(1)
-            obs_batch_v = obs_batch_v.expand(batch_size, self.n_actions, *batch_rest)
-            obs_batch_v = obs_batch_v.contiguous().view(-1, *batch_rest)
-        actions = np.tile(np.arange(0, self.n_actions, dtype=np.int64), batch_size)
+            obs_batch_v = obs_batch_v.expand(
+                batch_size, self.n_actions, *batch_rest)
+            obs_batch_v = obs_batch_v.contiguous()
+            obs_batch_v = obs_batch_v.view(-1, *batch_rest)
+        actions = np.tile(np.arange(0, self.n_actions,
+                                    dtype=np.int64), batch_size)
         step_obs, step_rewards = [], []
 
         for step_idx in range(self.rollout_steps):
-            actions_t = torch.tensor(actions, dtype=torch.int64).to(batch.device)
-            obs_next_v, reward_v = self.net_em(obs_batch_v, actions_t)
+            actions_t = torch.LongTensor(actions).to(batch.device)
+            obs_next_v, reward_v = \
+                self.net_em(obs_batch_v, actions_t)
             step_obs.append(obs_next_v.detach())
             step_rewards.append(reward_v.detach())
             # don't need actions for the last step
@@ -173,7 +190,8 @@ class I2A(nn.Module):
             # combine the delta from EM into new observation
             cur_plane_v = obs_batch_v[:, 1:2]
             new_plane_v = cur_plane_v + obs_next_v
-            obs_batch_v = torch.cat((cur_plane_v, new_plane_v), dim=1)
+            obs_batch_v = torch.cat(
+                (cur_plane_v, new_plane_v), dim=1)
             # select actions
             logits_v, _ = self.net_policy(obs_batch_v)
             probs_v = F.softmax(logits_v, dim=1)
