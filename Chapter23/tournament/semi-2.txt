@@ -1,0 +1,101 @@
+saves/t1/best_020_11800.dat vs saves/t1/best_021_11900.dat -> w=46, l=54, d=0
+saves/t1/best_020_11800.dat vs saves/t1/best_022_12000.dat -> w=45, l=55, d=0
+saves/t1/best_020_11800.dat vs saves/t1/best_023_12100.dat -> w=50, l=50, d=0
+saves/t1/best_020_11800.dat vs saves/t1/best_024_13000.dat -> w=57, l=43, d=0
+saves/t1/best_020_11800.dat vs saves/t1/best_025_14600.dat -> w=47, l=53, d=0
+saves/t1/best_020_11800.dat vs saves/t1/best_026_15100.dat -> w=48, l=52, d=0
+saves/t1/best_020_11800.dat vs saves/t1/best_027_15500.dat -> w=58, l=42, d=0
+saves/t1/best_020_11800.dat vs saves/t1/best_028_16100.dat -> w=68, l=32, d=0
+saves/t1/best_020_11800.dat vs saves/t1/best_029_17000.dat -> w=49, l=51, d=0
+saves/t1/best_021_11900.dat vs saves/t1/best_020_11800.dat -> w=53, l=47, d=0
+saves/t1/best_021_11900.dat vs saves/t1/best_022_12000.dat -> w=48, l=52, d=0
+saves/t1/best_021_11900.dat vs saves/t1/best_023_12100.dat -> w=53, l=47, d=0
+saves/t1/best_021_11900.dat vs saves/t1/best_024_13000.dat -> w=47, l=53, d=0
+saves/t1/best_021_11900.dat vs saves/t1/best_025_14600.dat -> w=30, l=70, d=0
+saves/t1/best_021_11900.dat vs saves/t1/best_026_15100.dat -> w=36, l=64, d=0
+saves/t1/best_021_11900.dat vs saves/t1/best_027_15500.dat -> w=41, l=59, d=0
+saves/t1/best_021_11900.dat vs saves/t1/best_028_16100.dat -> w=51, l=49, d=0
+saves/t1/best_021_11900.dat vs saves/t1/best_029_17000.dat -> w=49, l=51, d=0
+saves/t1/best_022_12000.dat vs saves/t1/best_020_11800.dat -> w=47, l=53, d=0
+saves/t1/best_022_12000.dat vs saves/t1/best_021_11900.dat -> w=52, l=48, d=0
+saves/t1/best_022_12000.dat vs saves/t1/best_023_12100.dat -> w=47, l=53, d=0
+saves/t1/best_022_12000.dat vs saves/t1/best_024_13000.dat -> w=61, l=39, d=0
+saves/t1/best_022_12000.dat vs saves/t1/best_025_14600.dat -> w=52, l=48, d=0
+saves/t1/best_022_12000.dat vs saves/t1/best_026_15100.dat -> w=54, l=46, d=0
+saves/t1/best_022_12000.dat vs saves/t1/best_027_15500.dat -> w=42, l=58, d=0
+saves/t1/best_022_12000.dat vs saves/t1/best_028_16100.dat -> w=67, l=33, d=0
+saves/t1/best_022_12000.dat vs saves/t1/best_029_17000.dat -> w=57, l=43, d=0
+saves/t1/best_023_12100.dat vs saves/t1/best_020_11800.dat -> w=49, l=51, d=0
+saves/t1/best_023_12100.dat vs saves/t1/best_021_11900.dat -> w=50, l=50, d=0
+saves/t1/best_023_12100.dat vs saves/t1/best_022_12000.dat -> w=55, l=45, d=0
+saves/t1/best_023_12100.dat vs saves/t1/best_024_13000.dat -> w=58, l=42, d=0
+saves/t1/best_023_12100.dat vs saves/t1/best_025_14600.dat -> w=44, l=56, d=0
+saves/t1/best_023_12100.dat vs saves/t1/best_026_15100.dat -> w=54, l=46, d=0
+saves/t1/best_023_12100.dat vs saves/t1/best_027_15500.dat -> w=29, l=71, d=0
+saves/t1/best_023_12100.dat vs saves/t1/best_028_16100.dat -> w=50, l=50, d=0
+saves/t1/best_023_12100.dat vs saves/t1/best_029_17000.dat -> w=60, l=40, d=0
+saves/t1/best_024_13000.dat vs saves/t1/best_020_11800.dat -> w=48, l=52, d=0
+saves/t1/best_024_13000.dat vs saves/t1/best_021_11900.dat -> w=60, l=40, d=0
+saves/t1/best_024_13000.dat vs saves/t1/best_022_12000.dat -> w=45, l=55, d=0
+saves/t1/best_024_13000.dat vs saves/t1/best_023_12100.dat -> w=52, l=48, d=0
+saves/t1/best_024_13000.dat vs saves/t1/best_025_14600.dat -> w=39, l=61, d=0
+saves/t1/best_024_13000.dat vs saves/t1/best_026_15100.dat -> w=40, l=60, d=0
+saves/t1/best_024_13000.dat vs saves/t1/best_027_15500.dat -> w=40, l=60, d=0
+saves/t1/best_024_13000.dat vs saves/t1/best_028_16100.dat -> w=49, l=51, d=0
+saves/t1/best_024_13000.dat vs saves/t1/best_029_17000.dat -> w=61, l=39, d=0
+saves/t1/best_025_14600.dat vs saves/t1/best_020_11800.dat -> w=53, l=47, d=0
+saves/t1/best_025_14600.dat vs saves/t1/best_021_11900.dat -> w=53, l=47, d=0
+saves/t1/best_025_14600.dat vs saves/t1/best_022_12000.dat -> w=48, l=51, d=1
+saves/t1/best_025_14600.dat vs saves/t1/best_023_12100.dat -> w=57, l=43, d=0
+saves/t1/best_025_14600.dat vs saves/t1/best_024_13000.dat -> w=64, l=36, d=0
+saves/t1/best_025_14600.dat vs saves/t1/best_026_15100.dat -> w=51, l=49, d=0
+saves/t1/best_025_14600.dat vs saves/t1/best_027_15500.dat -> w=59, l=41, d=0
+saves/t1/best_025_14600.dat vs saves/t1/best_028_16100.dat -> w=37, l=63, d=0
+saves/t1/best_025_14600.dat vs saves/t1/best_029_17000.dat -> w=52, l=48, d=0
+saves/t1/best_026_15100.dat vs saves/t1/best_020_11800.dat -> w=42, l=58, d=0
+saves/t1/best_026_15100.dat vs saves/t1/best_021_11900.dat -> w=58, l=42, d=0
+saves/t1/best_026_15100.dat vs saves/t1/best_022_12000.dat -> w=47, l=52, d=1
+saves/t1/best_026_15100.dat vs saves/t1/best_023_12100.dat -> w=41, l=59, d=0
+saves/t1/best_026_15100.dat vs saves/t1/best_024_13000.dat -> w=53, l=47, d=0
+saves/t1/best_026_15100.dat vs saves/t1/best_025_14600.dat -> w=57, l=43, d=0
+saves/t1/best_026_15100.dat vs saves/t1/best_027_15500.dat -> w=62, l=38, d=0
+saves/t1/best_026_15100.dat vs saves/t1/best_028_16100.dat -> w=48, l=52, d=0
+saves/t1/best_026_15100.dat vs saves/t1/best_029_17000.dat -> w=45, l=55, d=0
+saves/t1/best_027_15500.dat vs saves/t1/best_020_11800.dat -> w=43, l=57, d=0
+saves/t1/best_027_15500.dat vs saves/t1/best_021_11900.dat -> w=55, l=45, d=0
+saves/t1/best_027_15500.dat vs saves/t1/best_022_12000.dat -> w=51, l=49, d=0
+saves/t1/best_027_15500.dat vs saves/t1/best_023_12100.dat -> w=67, l=33, d=0
+saves/t1/best_027_15500.dat vs saves/t1/best_024_13000.dat -> w=59, l=41, d=0
+saves/t1/best_027_15500.dat vs saves/t1/best_025_14600.dat -> w=49, l=51, d=0
+saves/t1/best_027_15500.dat vs saves/t1/best_026_15100.dat -> w=48, l=52, d=0
+saves/t1/best_027_15500.dat vs saves/t1/best_028_16100.dat -> w=42, l=58, d=0
+saves/t1/best_027_15500.dat vs saves/t1/best_029_17000.dat -> w=33, l=67, d=0
+saves/t1/best_028_16100.dat vs saves/t1/best_020_11800.dat -> w=34, l=66, d=0
+saves/t1/best_028_16100.dat vs saves/t1/best_021_11900.dat -> w=53, l=47, d=0
+saves/t1/best_028_16100.dat vs saves/t1/best_022_12000.dat -> w=47, l=53, d=0
+saves/t1/best_028_16100.dat vs saves/t1/best_023_12100.dat -> w=53, l=47, d=0
+saves/t1/best_028_16100.dat vs saves/t1/best_024_13000.dat -> w=49, l=51, d=0
+saves/t1/best_028_16100.dat vs saves/t1/best_025_14600.dat -> w=55, l=45, d=0
+saves/t1/best_028_16100.dat vs saves/t1/best_026_15100.dat -> w=61, l=39, d=0
+saves/t1/best_028_16100.dat vs saves/t1/best_027_15500.dat -> w=51, l=49, d=0
+saves/t1/best_028_16100.dat vs saves/t1/best_029_17000.dat -> w=66, l=34, d=0
+saves/t1/best_029_17000.dat vs saves/t1/best_020_11800.dat -> w=43, l=57, d=0
+saves/t1/best_029_17000.dat vs saves/t1/best_021_11900.dat -> w=60, l=40, d=0
+saves/t1/best_029_17000.dat vs saves/t1/best_022_12000.dat -> w=45, l=55, d=0
+saves/t1/best_029_17000.dat vs saves/t1/best_023_12100.dat -> w=42, l=58, d=0
+saves/t1/best_029_17000.dat vs saves/t1/best_024_13000.dat -> w=45, l=55, d=0
+saves/t1/best_029_17000.dat vs saves/t1/best_025_14600.dat -> w=49, l=51, d=0
+saves/t1/best_029_17000.dat vs saves/t1/best_026_15100.dat -> w=39, l=61, d=0
+saves/t1/best_029_17000.dat vs saves/t1/best_027_15500.dat -> w=63, l=37, d=0
+saves/t1/best_029_17000.dat vs saves/t1/best_028_16100.dat -> w=39, l=61, d=0
+Leaderboard:
+saves/t1/best_020_11800.dat: 	 w=956, l=844, d=0
+saves/t1/best_025_14600.dat: 	 w=952, l=847, d=1
+saves/t1/best_022_12000.dat: 	 w=946, l=852, d=2
+saves/t1/best_026_15100.dat: 	 w=922, l=877, d=1
+saves/t1/best_028_16100.dat: 	 w=918, l=882, d=0
+saves/t1/best_027_15500.dat: 	 w=902, l=898, d=0
+saves/t1/best_023_12100.dat: 	 w=887, l=913, d=0
+saves/t1/best_029_17000.dat: 	 w=853, l=947, d=0
+saves/t1/best_024_13000.dat: 	 w=841, l=959, d=0
+saves/t1/best_021_11900.dat: 	 w=821, l=979, d=0

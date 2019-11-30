@@ -1,0 +1,82 @@
+saves/t1/best_001_00500.dat vs saves/t1/best_002_00700.dat -> w=44, l=56, d=0
+saves/t1/best_001_00500.dat vs saves/t1/best_003_00900.dat -> w=49, l=51, d=0
+saves/t1/best_001_00500.dat vs saves/t1/best_004_01200.dat -> w=43, l=57, d=0
+saves/t1/best_001_00500.dat vs saves/t1/best_005_01400.dat -> w=31, l=69, d=0
+saves/t1/best_001_00500.dat vs saves/t1/best_006_01500.dat -> w=44, l=56, d=0
+saves/t1/best_001_00500.dat vs saves/t1/best_007_01600.dat -> w=43, l=57, d=0
+saves/t1/best_001_00500.dat vs saves/t1/best_008_01700.dat -> w=30, l=70, d=0
+saves/t1/best_001_00500.dat vs saves/t1/best_009_02600.dat -> w=45, l=55, d=0
+saves/t1/best_002_00700.dat vs saves/t1/best_001_00500.dat -> w=58, l=42, d=0
+saves/t1/best_002_00700.dat vs saves/t1/best_003_00900.dat -> w=34, l=66, d=0
+saves/t1/best_002_00700.dat vs saves/t1/best_004_01200.dat -> w=55, l=45, d=0
+saves/t1/best_002_00700.dat vs saves/t1/best_005_01400.dat -> w=39, l=61, d=0
+saves/t1/best_002_00700.dat vs saves/t1/best_006_01500.dat -> w=44, l=56, d=0
+saves/t1/best_002_00700.dat vs saves/t1/best_007_01600.dat -> w=48, l=52, d=0
+saves/t1/best_002_00700.dat vs saves/t1/best_008_01700.dat -> w=28, l=72, d=0
+saves/t1/best_002_00700.dat vs saves/t1/best_009_02600.dat -> w=40, l=60, d=0
+saves/t1/best_003_00900.dat vs saves/t1/best_001_00500.dat -> w=53, l=47, d=0
+saves/t1/best_003_00900.dat vs saves/t1/best_002_00700.dat -> w=63, l=37, d=0
+saves/t1/best_003_00900.dat vs saves/t1/best_004_01200.dat -> w=41, l=59, d=0
+saves/t1/best_003_00900.dat vs saves/t1/best_005_01400.dat -> w=32, l=68, d=0
+saves/t1/best_003_00900.dat vs saves/t1/best_006_01500.dat -> w=41, l=59, d=0
+saves/t1/best_003_00900.dat vs saves/t1/best_007_01600.dat -> w=41, l=59, d=0
+saves/t1/best_003_00900.dat vs saves/t1/best_008_01700.dat -> w=48, l=52, d=0
+saves/t1/best_003_00900.dat vs saves/t1/best_009_02600.dat -> w=52, l=48, d=0
+saves/t1/best_004_01200.dat vs saves/t1/best_001_00500.dat -> w=47, l=53, d=0
+saves/t1/best_004_01200.dat vs saves/t1/best_002_00700.dat -> w=48, l=52, d=0
+saves/t1/best_004_01200.dat vs saves/t1/best_003_00900.dat -> w=69, l=31, d=0
+saves/t1/best_004_01200.dat vs saves/t1/best_005_01400.dat -> w=56, l=44, d=0
+saves/t1/best_004_01200.dat vs saves/t1/best_006_01500.dat -> w=54, l=46, d=0
+saves/t1/best_004_01200.dat vs saves/t1/best_007_01600.dat -> w=29, l=71, d=0
+saves/t1/best_004_01200.dat vs saves/t1/best_008_01700.dat -> w=46, l=54, d=0
+saves/t1/best_004_01200.dat vs saves/t1/best_009_02600.dat -> w=44, l=56, d=0
+saves/t1/best_005_01400.dat vs saves/t1/best_001_00500.dat -> w=64, l=36, d=0
+saves/t1/best_005_01400.dat vs saves/t1/best_002_00700.dat -> w=55, l=45, d=0
+saves/t1/best_005_01400.dat vs saves/t1/best_003_00900.dat -> w=65, l=35, d=0
+saves/t1/best_005_01400.dat vs saves/t1/best_004_01200.dat -> w=50, l=50, d=0
+saves/t1/best_005_01400.dat vs saves/t1/best_006_01500.dat -> w=40, l=60, d=0
+saves/t1/best_005_01400.dat vs saves/t1/best_007_01600.dat -> w=46, l=54, d=0
+saves/t1/best_005_01400.dat vs saves/t1/best_008_01700.dat -> w=45, l=55, d=0
+saves/t1/best_005_01400.dat vs saves/t1/best_009_02600.dat -> w=36, l=63, d=1
+saves/t1/best_006_01500.dat vs saves/t1/best_001_00500.dat -> w=61, l=39, d=0
+saves/t1/best_006_01500.dat vs saves/t1/best_002_00700.dat -> w=55, l=44, d=1
+saves/t1/best_006_01500.dat vs saves/t1/best_003_00900.dat -> w=59, l=41, d=0
+saves/t1/best_006_01500.dat vs saves/t1/best_004_01200.dat -> w=54, l=46, d=0
+saves/t1/best_006_01500.dat vs saves/t1/best_005_01400.dat -> w=60, l=40, d=0
+saves/t1/best_006_01500.dat vs saves/t1/best_007_01600.dat -> w=44, l=56, d=0
+saves/t1/best_006_01500.dat vs saves/t1/best_008_01700.dat -> w=54, l=46, d=0
+saves/t1/best_006_01500.dat vs saves/t1/best_009_02600.dat -> w=63, l=37, d=0
+saves/t1/best_007_01600.dat vs saves/t1/best_001_00500.dat -> w=69, l=31, d=0
+saves/t1/best_007_01600.dat vs saves/t1/best_002_00700.dat -> w=49, l=51, d=0
+saves/t1/best_007_01600.dat vs saves/t1/best_003_00900.dat -> w=55, l=45, d=0
+saves/t1/best_007_01600.dat vs saves/t1/best_004_01200.dat -> w=73, l=27, d=0
+saves/t1/best_007_01600.dat vs saves/t1/best_005_01400.dat -> w=50, l=50, d=0
+saves/t1/best_007_01600.dat vs saves/t1/best_006_01500.dat -> w=49, l=51, d=0
+saves/t1/best_007_01600.dat vs saves/t1/best_008_01700.dat -> w=43, l=57, d=0
+saves/t1/best_007_01600.dat vs saves/t1/best_009_02600.dat -> w=57, l=43, d=0
+saves/t1/best_008_01700.dat vs saves/t1/best_001_00500.dat -> w=66, l=34, d=0
+saves/t1/best_008_01700.dat vs saves/t1/best_002_00700.dat -> w=76, l=24, d=0
+saves/t1/best_008_01700.dat vs saves/t1/best_003_00900.dat -> w=48, l=52, d=0
+saves/t1/best_008_01700.dat vs saves/t1/best_004_01200.dat -> w=55, l=45, d=0
+saves/t1/best_008_01700.dat vs saves/t1/best_005_01400.dat -> w=54, l=46, d=0
+saves/t1/best_008_01700.dat vs saves/t1/best_006_01500.dat -> w=44, l=56, d=0
+saves/t1/best_008_01700.dat vs saves/t1/best_007_01600.dat -> w=66, l=34, d=0
+saves/t1/best_008_01700.dat vs saves/t1/best_009_02600.dat -> w=64, l=36, d=0
+saves/t1/best_009_02600.dat vs saves/t1/best_001_00500.dat -> w=52, l=48, d=0
+saves/t1/best_009_02600.dat vs saves/t1/best_002_00700.dat -> w=54, l=46, d=0
+saves/t1/best_009_02600.dat vs saves/t1/best_003_00900.dat -> w=46, l=54, d=0
+saves/t1/best_009_02600.dat vs saves/t1/best_004_01200.dat -> w=52, l=47, d=1
+saves/t1/best_009_02600.dat vs saves/t1/best_005_01400.dat -> w=49, l=49, d=2
+saves/t1/best_009_02600.dat vs saves/t1/best_006_01500.dat -> w=48, l=52, d=0
+saves/t1/best_009_02600.dat vs saves/t1/best_007_01600.dat -> w=45, l=55, d=0
+saves/t1/best_009_02600.dat vs saves/t1/best_008_01700.dat -> w=29, l=71, d=0
+Leaderboard:
+saves/t1/best_008_01700.dat: 	 w=950, l=650, d=0
+saves/t1/best_006_01500.dat: 	 w=886, l=713, d=1
+saves/t1/best_007_01600.dat: 	 w=883, l=717, d=0
+saves/t1/best_005_01400.dat: 	 w=828, l=769, d=3
+saves/t1/best_009_02600.dat: 	 w=773, l=823, d=4
+saves/t1/best_004_01200.dat: 	 w=769, l=830, d=1
+saves/t1/best_003_00900.dat: 	 w=746, l=854, d=0
+saves/t1/best_002_00700.dat: 	 w=701, l=898, d=1
+saves/t1/best_001_00500.dat: 	 w=659, l=941, d=0
