@@ -17,13 +17,13 @@
 
 \begin{document}
 
-Page 1, section ``Value, state and optimality''
+Page 2, section ``Value, state and optimality''
 
 We defined value as an expected total reward obtainable from the state. In formal way, value of the state is:
 \begin{math}V(s) = \E[\sum_{t=0}^\infty{r_t\gamma^t}]\end{math}, where \begin{math}r_t\end{math} is the local
 reward obtained at the step t of the episode.
 
-Page 2, section ``Bellman equation of optimality''
+Page 4, section ``Bellman equation of optimality''
 
 Let’s start with deterministic case, when all our actions have 100\% guaranteed
 outcome. Imagine our agent observes state \begin{math}s_0\end{math} and has N
@@ -33,7 +33,8 @@ available actions. Every action leads to another state
 values \begin{math}V_i\end{math} of all states connected to the
 state \begin{math}s_0\end{math}.
 
-If we fix the action and calculate the value given to this action, the value
+If we choose the concrete action, \begin{math}a_i\end{math}, and calculate the 
+value given to this action, the value
 will be \begin{math}V_0(a=a_i) = r_i + V_i\end{math}. So, to choose the best possible action, the agent
 needs to calculate resulting values for every action and choose the maximum
 possible outcome. In other words: \begin{math}V_0 = \max_{a \in 1 \ldots N}(r_a + V_a)\end{math}. If we’re using discount
@@ -42,7 +43,7 @@ factor \begin{math}\gamma\end{math}, we need to multiply value of the next state
 
 
 
-Page 3
+Page 5
 
 It’s not very complicated to extend it for a stochastic case, when our
 actions can have chance to end up in different states. What we need to do is to
@@ -79,12 +80,12 @@ V_0 = \max_{a \in A}\E_{s \sim S}[r_{s,a} + \gamma V_s] = \max_{a \in A} \sum_{s
 p_{a,0 \rightarrow s}(r_{s,a} + \gamma V_s)
 \end{equation*}
 
-(Notation \begin{math}p_{a,i \rightarrow j}\end{math} means probability of action a issued in
+(Note that \begin{math}p_{a,i \rightarrow j}\end{math} means probability of action a issued in
 state i to end up in state j)
 
 
 
-Page 4, Value of action
+Page 6, Value of action
 
 To make our life slightly easier, we can define different quantity in addition
 to value of state \begin{math}V(s)\end{math}: value of action \begin{math}Q(s,a)\end{math}. Basically, it equals total
