@@ -68,7 +68,8 @@ if __name__ == "__main__":
         reward /= TEST_EPISODES
         writer.add_scalar("reward", reward, iter_no)
         if reward > best_reward:
-            print("Best reward updated %.3f -> %.3f" % (best_reward, reward))
+            print("Best reward updated %.3f -> %.3f" % (
+                best_reward, reward))
             best_reward = reward
         if reward > 0.80:
             print("Solved in %d iterations!" % iter_no)

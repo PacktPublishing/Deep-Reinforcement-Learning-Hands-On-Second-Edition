@@ -30,7 +30,8 @@ EPSILON_FINAL = 0.01
 
 
 Experience = collections.namedtuple(
-    'Experience', field_names=['state', 'action', 'reward', 'done', 'new_state'])
+    'Experience', field_names=['state', 'action', 'reward',
+                               'done', 'new_state'])
 
 
 class ExperienceBuffer:
@@ -94,20 +95,25 @@ class Agent:
 def calc_loss(batch, net, tgt_net, device="cpu"):
     states, actions, rewards, dones, next_states = batch
 
-    states_v = torch.tensor(np.array(states, copy=False)).to(device)
-    next_states_v = torch.tensor(np.array(next_states, copy=False)).to(device)
+    states_v = torch.tensor(np.array(
+        states, copy=False)).to(device)
+    next_states_v = torch.tensor(np.array(
+        next_states, copy=False)).to(device)
     actions_v = torch.tensor(actions).to(device)
     rewards_v = torch.tensor(rewards).to(device)
     done_mask = torch.BoolTensor(dones).to(device)
 
-    state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
+    state_action_values = net(states_v).gather(
+        1, actions_v.unsqueeze(-1)).squeeze(-1)
     with torch.no_grad():
         next_state_values = tgt_net(next_states_v).max(1)[0]
         next_state_values[done_mask] = 0.0
         next_state_values = next_state_values.detach()
 
-    expected_state_action_values = next_state_values * GAMMA + rewards_v
-    return nn.MSELoss()(state_action_values, expected_state_action_values)
+    expected_state_action_values = next_state_values * GAMMA + \
+                                   rewards_v
+    return nn.MSELoss()(state_action_values,
+                        expected_state_action_values)
 
 
 if __name__ == "__main__":
@@ -165,7 +171,7 @@ if __name__ == "__main__":
                 torch.save(net.state_dict(), args.env +
                            "-best_%.0f.dat" % m_reward)
                 if best_m_reward is not None:
-                    print("Best reward updated %.3f -> %.3f, saved" % (
+                    print("Best reward updated %.3f -> %.3f" % (
                         best_m_reward, m_reward))
                 best_m_reward = m_reward
             if m_reward > MEAN_REWARD_BOUND:
