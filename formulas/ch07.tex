@@ -1,0 +1,25 @@
+% C-c C-o to insert the block
+
+% Individual equation: equation* block
+% Inline equation \begin{math}\frac{sin(x)}{x}\end{math}
+\documentclass{article}
+
+\usepackage{amsmath,amssymb}
+
+\ifdefined\ispreview
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{math}
+\PreviewEnvironment{equation*}
+\fi
+
+\DeclareMathOperator{\E}{\mathbb{E}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\begin{document}
+
+Page 11, TargetNet class
+
+The first mode is the standard way to perform a target network sync in discrete action space problems, like Atari and CartPole. We did this in Chapter 6. The latter mode is used in continuous control problems, which will be described in several chapters in Part Four of the book. In such problems, the transition between two networks’ parameters should be smooth, so alpha blending is used, given by the formula: 
+\begin{math}w_i = w_i \alpha + s_i (1-\alpha)\end{math}, where \begin{math}w_i\end{math} is the target network’s i’th parameter and \begin{math}s_i\end{math} is the source network’s weight. The following is a small example of how TargetNet should be used in code.
+
+\end{document}
