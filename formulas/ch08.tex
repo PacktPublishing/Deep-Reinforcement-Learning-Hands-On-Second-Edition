@@ -18,49 +18,72 @@
 
 \begin{document}
 
-Page 3, Agent's experience
-
-\begin{equation*}
-  Q(s_t,a_t) = \E[r_t+\gamma r_{t+1} + \gamma^2 r_{t+2}+\ldots+\gamma^k \max_aQ(s_{t+k,a}]
-\end{equation*}
-
-To support this situations in a generic way, in PTAN we have class
-ptan.experience.ExperienceSourceFirstLast, which takes the environment and the
-agent and provides us the stream of experience tuples: ($s_t$, $a_t$, $R_t$, $s_{t+k}$), where
-\begin{math}R_t = r_t + \gamma r_{t+1} + \gamma^2 r_{t+2} + \ldots + \gamma^{k-1}r_{t+k-1}\end{math}. When k=1, $R_t$ is just the $r_t$.
-
-Page 10, N-steps DQN
+Page 9, N-steps DQN
 
 
 \begin{equation*}
   Q(s_t, a_t) = r_t + \gamma \max_a Q(s_{t+1},a_{t+1})
 \end{equation*}
 
+This equation is recursive, which means that we can express \begin{math}Q(s_{t+1}, a_{t+1})\end{math} in terms of itself, which gives us this result:
 
 \begin{equation*}
   Q(s_t, a_t) = r_t + \gamma \max_a [r_{a,t+1} + \gamma \max_{a'} Q(s_{t+2},a')] 
 \end{equation*}
 
+Value \begin{math}r_{a,t+1}\end{math} means local reward at time t+1, after issuing action a. However, if we assume that our action a at the step t+1 was chosen optimally, or close to optimally, we can omit \begin{math}\max_a\end{math} operation and obtain this:
 
 \begin{equation*}
   Q(s_t, a_t) = r_t + \gamma r_{t+1} + \gamma^2 \max_{a'} Q(s_{t+2},a')
 \end{equation*}
 
+Page 10
+
+So, what happens in a one-step case? We have three total updates possible (we don't use max, as there is only one action available):
+
+\begin{enumerate}
+	\item \begin{math}
+	Q(s_1,a) \leftarrow r_1 + \gamma Q(s_2,a)
+	\end{math}
+	\item \begin{math}
+	Q(s_2,a) \leftarrow r_2 + \gamma Q(s_3,a)
+	\end{math}
+	\item \begin{math}
+	Q(s_3,a) \leftarrow r_3
+	\end{math}
+\end{enumerate}
+
+Now let's consider a two-step case. This situation again has three updates:
+
+\begin{enumerate}
+	\item \begin{math}
+	Q(s_1,a) \leftarrow r_1 + \gamma r_2 + \gamma^2 Q(s_3,a)
+	\end{math}
+	\item \begin{math}
+	Q(s_2,a) \leftarrow r_2 + \gamma r_3
+	\end{math}
+	\item \begin{math}
+	Q(s_3,a) \leftarrow r_3
+	\end{math}
+\end{enumerate}
+
 
 Page 13, Double DQN
 
+In the basic DQN, our target value for Q looked like this:
 
 \begin{equation*}
-  Q(s_t, a_t) = r_t + \gamma \max_a Q'(s_{t+1},a_{t+1})
+  Q(s_t, a_t) = r_t + \gamma \max_a Q'(s_{t+1},a)
 \end{equation*}
 
+\begin{math}Q'(s_{t+1}, a)\end{math} was Q-values calculated using our target network, so we update with the trained network every n steps. The authors of the paper proposed choosing actions for the next state using the trained network but taking values of Q from the target net. So, the new expression for target Q-values will look like this:
 
 \begin{equation*}
   Q(s_t, a_t) = r_t + \gamma \max_a Q'(s_{t+1},\argmax_a Q(s_{t+1}, a))  
 \end{equation*}
 
 
-Page 23, Prioritized replay buffer
+Page 21, Prioritized replay buffer
 
 From the mathematical point of view, priority of every sample in the buffer is
 calculated as \begin{math}P(i) = \frac{p_i^\alpha}{\sum_kp_k^\alpha}\end{math}, where $p_i$ is the priority of i-th sample in the buffer and $\alpha$ is
@@ -70,9 +93,9 @@ the number which shows
 To get this, the authors used sample weights, which need to be multiplied to the
 individual sample loss. The value of weight for each sample is defined as
 \begin{math}w_i=(N \cdot P(i))^{-\beta}\end{math},
-where β is another hyperparameter, which should be between 0 and 1.
+where \begin{math}\beta\end{math} is another hyperparameter, which should be between 0 and 1.
 
-Page 29, Dueling DQN
+Page 27, Dueling DQN
 
 This constraint could be enforced in various ways, for example, via the loss
 function, but in the above paper, the authors proposed a very elegant solution
