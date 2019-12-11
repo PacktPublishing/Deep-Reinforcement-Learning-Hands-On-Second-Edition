@@ -25,7 +25,7 @@ result of our policy \begin{math}\pi\end{math} at every state s is the action wi
 
 In math notation, policy is usually represented as \begin{math}\pi(s)\end{math}, we’ll use this notation as well.
   
-Page 2, Policy gradients
+Page 4, Policy gradients
 
 We define policy gradient as \begin{math}\nabla J \approx \E[Q(s, a) \nabla\log \pi(a|s)]\end{math}. Of course, there is a
 strong proof of this, but it’s not that important. Which is much more important
@@ -35,11 +35,11 @@ From the practical point of view, policy gradient methods could be implemented
 as performing optimisation of this loss function: \begin{math}\mathcal{L} = -Q(s, a) \log \pi(a|s)\end{math}.
 
 
-Page 3, REINFORCE
+Page 5, REINFORCE
 
 \begin{enumerate}
 \item Initialize the network with random weight.
-\item Play N full episodes, saving their (s, a, r, s’) transitions.
+\item Play N full episodes, saving their \begin{math}(s_i, a_i, r_i, s’_i)\end{math} transitions.
 \item
   For every step t of every episode k calculate discounted total reward for
   subsequent steps \begin{math}Q_{k,t} = \sum_{i=0}\gamma^ir_i\end{math}
@@ -50,20 +50,36 @@ Page 3, REINFORCE
 \end{enumerate}
 
 
-Page 9, Full episodes are required
+Page 6, CartPole Example
+
+To do this efficiently, we calculate the reward from the end of the local reward list. Indeed, the last step of the episode will have the total reward equal to its local reward. The step before the last will have the total reward of 
+\begin{math}r_{t-1} + \gamma r_t\end{math} (if t is an index of the last step).
+
+
+Page 12, Full episodes are required
 
 When we talked about DQN we’ve seen that in practice it’s fine to replace the
 exact value for discounted reward with our estimation using 1-step Bellman
 equation \begin{math}Q(s, a) = r_a + \gamma V(s')\end{math}.
 
-Page 9, High gradient variance
+
+Page 13, High gradient variance
 
 In policy gradients formula \begin{math}\nabla J \approx \E[Q(s, a) \nabla\log \pi(a|s)]\end{math} we have gradient
 proportional to the discounter reward from the given state.
 
-Page 10, Exploration
+Page 13, Exploration
 
 In math notation, entropy of the policy is defined as: \begin{math}H(\pi) =
   -\sum \pi(a|s)\log \pi(a|s)\end{math}
+
+Page 18, Results
+
+The entropy is decreasing over time from 0.69 to 0.52. The starting value corresponds to the maximum entropy with two actions, which is approximately 0.69: 
+\begin{equation*}
+H(\pi) = -\sum_a \pi(a|s)\log \pi(a|s) = - (\frac{1}{2} \log(\frac{1}{2}) + \frac{1}{2} \log(\frac{1}{2})) \approx 0.69
+\end{equation*}
+
+The fact that the entropy is decreasing during the training, as indicated by the following chart,   shows that our policy is moving from the uniform distribution to more deterministic actions.
 
 \end{document}
