@@ -32,9 +32,13 @@ previous chapter, the method idea is to increase the probability of good actions
 and decrease the chance for bad actions. In math notation our policy gradient
 was written as \begin{math}\nabla J \approx \E[Q(s, a) \nabla\log \pi(a|s)]\end{math}
 
-Page 5, Actor-Critic
+Page 6, Actor-Critic
 
+However, the total reward itself could be represented as a value of the state plus advantage of the action: \begin{math}Q(s, a) = V(s) + A(s, a)\end{math}. 
 
+Page 8
+
+From a training point of view, we complete these steps:
 \begin{enumerate}
 \item Initialize network parameters \begin{math}\theta\end{math} with random values
 \item
@@ -66,7 +70,7 @@ an entropy value added to the loss function: \begin{math}\mathcal{L}_H = \beta
   \sum_i \pi_\theta(s_i) \log \pi_\theta(s_i)\end{math}.
 
 
-Page 7
+Page 10
 
 
 Forward pass through the network returns tuple of two tensors: policy and
@@ -76,7 +80,7 @@ actions taken and batch of Q-values calculated using the
 formula \begin{math}Q(s, a) = \sum_{i=0}^{N-1}\gamma^ir_i + \gamma^NV(s_N)\end{math}
 
 
-Page 10
+Page 13
 
 The last piece of our loss function is entropy loss which equals to the scaled
 entropy of our policy taken with the opposite sign (entropy is calculated
