@@ -1,0 +1,55 @@
+% C-c C-o to insert the block
+
+% Individual equation: equation* block
+% Inline equation \begin{math}\frac{sin(x)}{x}\end{math}
+\documentclass{article}
+
+\usepackage{amsmath,amssymb}
+
+\ifdefined\ispreview
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{math}
+\PreviewEnvironment{equation*}
+\fi
+
+\DeclareMathOperator{\E}{\mathbb{E}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\begin{document}
+
+Page 8, Training
+
+For each state \begin{math}s\end{math} in this sequence we carry out the following procedure:
+\begin{enumerate}
+	\item apply every possible transformation (12 in total) to the state \begin{math}s\end{math},
+	\item pass those 12 states to our current neural network, asking for value output. This gives us 12 values for every sub-state of \begin{math}s\end{math}.
+	\item the target value for the state \begin{math}s\end{math} is calculated as \begin{math}y_{v_i} = \max_a (v_s(a) + R(A(s, a)))\end{math}, where \begin{math}A(s, a)\end{math} is the state after action \begin{math}a\end{math} applied to the state \begin{math}s\end{math} and \begin{math}R(s)\end{math} equals 1 if \begin{math}s\end{math} is the goal state and -1 otherwise.
+	\item The target policy for state \begin{math}s\end{math} is calculated using the same formula, but instead of max we take argmax: \begin{math}y_{p_i} = \argmax_a (v_s(a) + R(A(s,a)))\end{math}. This just means that our target policy will have 1 at the position of the maximum value for sub-state and 0 on all other positions.
+\end{enumerate}
+
+This process is shown on the figure below, taken from the paper. The sequence of scrambles \begin{math}x_0,x_1,\ldots,x_N\end{math} is generated, where cube \begin{math}x_i\end{math} is shown expanded. For this state \begin{math}x_i\end{math}, we make targets for the policy and value heads from the expanded states by applying the formulas above.
+
+Page 10, Model application
+
+In addition, the value returned by the model is also used in this decision-making. The value is being tracked as the maximum from the current state's value and the value from their its children. This allows the most promising paths (from the model perspective) to be seen from the parent's states.
+
+To summarize, the action to follow from a non-leaf tree is chosen by using the following formula: 
+\begin{math}A_t = \argmax_a (U_{s_t}(a) + W_{s_t}(a))\end{math}, where \begin{math}U_{s_t}(a) = c P_{s_t}(a) \frac{\sqrt{\sum_{a'}N_{s_t}(a')}}{1 + N_{s_t}(a)}\end{math}. 
+Here \begin{math}N_{s_t}(a)\end{math} is a count of times action a has been chosen in the state \begin{math}s_t\end{math}. \begin{math}P_{s_t}(a)\end{math} is the policy returned by the model for state \begin{math}s_t\end{math} and \begin{math}W_{s_t}(a)\end{math} is the maximum value returned by the model for all children's states of \begin{math}s_t\end{math} under the branch a. 
+
+
+Page 16, Experiment results
+
+After several experiments with this, I've come to the conclusion that this behavior is a result of the wrong value objective proposed in the method. Indeed, in formula \begin{math}y_{v_i} = \max_a (v_s(a) + R(A(s, a)))\end{math}, the value \begin{math}v_s(a)\end{math} returned by the network is always added to the actual reward R(s), even for the goal state. With this, the actual values returned by the network could be anything: -100, 106 or 3.1415. This is not a great situation for neural network training, especially with the MSE objective. 
+
+To check this, I modified the method of the target value calculation by assigning zero target for the goal state: 
+
+\begin{equation*}
+y_{v_i} = \begin{cases}
+\max_a(v_s(a) + R(A(s, a)))& \text{if $s$ is not the goal}\\
+0& \text{if $s$ is the goal state.}
+\end{cases}
+\end{equation*}
+
+\end{document}
