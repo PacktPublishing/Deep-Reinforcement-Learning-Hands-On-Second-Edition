@@ -18,7 +18,7 @@
 
 \begin{document}
 
-Page 4
+Page 9
 
 In math form, old A3C objective could be written as
 \begin{math}J_\theta=\E_t[\nabla_\theta\log\pi_\theta(a_t|s_t)A_t]\end{math}.
@@ -54,14 +54,18 @@ In the PPO paper, the authors used more general estimation in the form of
 where \begin{math}\sigma_t=r_t+\gamma V(s_{t+1})-V(s_t)\end{math}. The original
 A3C estimation, is a special case of the proposed method with \begin{math}\lambda=1\end{math}.
 
-Page 8
+Page 11
 
 the advantage estimation (tracked in last\_gae variable) is calculated as the sum of deltas with discount
 factor \begin{math}\gamma\lambda\end{math}.
 
+Page 12
+
 In the next step, we calculate the logarithm of probability of the actions taken. This value will be used as
 \begin{math}\pi_{\theta_{old}}\end{math} in the surrogate objective of PPO. Additionally, we normalize the advantage’s
 mean and variance to improve the training stability.
+
+Page 13
 
 In the actor training, we minimize the negated clipped objective,
 \begin{equation*}
@@ -71,7 +75,7 @@ where
 \begin{math}r_t(\theta)=\frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{old}}(a_t|s_t)}\end{math}.
 The lines below is straightforward implementation of this formula.
 
-Page 9
+Page 15, Trust Region Policy Optimisation
 
 As the first step, TRPO method defines the discounted visitation frequencies of
 the state: \begin{math}\rho_\pi(s)=P(s_0=s)+\gamma P(s_1=s)+\gamma^2 P(s_2=s)+\ldots\end{math}.
@@ -89,6 +93,32 @@ divergence between the old and the new policies, which could be written as
 \begin{math}\bar{D}_{KL}^{\rho_{\theta_{old}}}(\theta_{old},\theta) \leq \delta\end{math}
 .
 
+Page 21, Soft Actor-Critic Method
+
+The central idea in SAC method is entropy regularization, which adds at each timestamp a bonus reward that is proportional to the entropy of the policy at this timestamp. In mathematical notation, the policy we’re looking for is the following:
+
+\begin{equation*}
+\pi^* = \argmax\limits_a \E_{\tau \sim \pi} \sum_{t=0}^{\infty}\gamma^t(R(s_t, a_t, s_{t+1}) + 
+\alpha H(\pi(\cdot | s_t)))
+\end{equation*}
+
+Where \begin{math}H(P) = \E_{x \sim P}[-\log P(x)]\end{math} is an entropy of distribution P.
+
+So, in total, we train four networks: policy \begin{math}\pi(s)\end{math}, value 
+\begin{math}V(s, a)\end{math} and two Q-networks \begin{math}Q_{1,2}(s,a)\end{math}. 
+For the value network \begin{math}V(s, a)\end{math}, the target network is used. So, in total, Soft Actor-Critic training looks like following:
+
+\begin{itemize}
+	\item Q-networks are trained using the MSE objective by doing Bellman approximation using target value network: \begin{math}y_q(r,s') = r + \gamma V_{tgt}(s')\end{math}
+	(for non-terminating steps).
+	\item The V-network is trained using the MSE objective with the following target: 
+	\begin{math}y_v(s) = \min\limits_{i=1,2}Q_i(s,\tilde{a}) - \alpha \log \pi_\theta(\tilde{a}|s)\end{math}, where \begin{math}\tilde{a}\end{math} is 
+	sampled from policy \begin{math}\pi_\theta(\cdot|s)\end{math}.
+	\item The policy network \begin{math}\pi_\theta\end{math} is being trained in the DDPG style by maximizing the following objective: 
+	\begin{math}Q_1(s,\tilde{a}_\theta(s)) - \alpha \log \pi_\theta(\tilde{a}_\theta(s)|s)\end{math}
+	where \begin{math}\tilde{a}_\theta\end{math} is a sample from 
+	\begin{math}\pi_\theta(\cdot|s)\end{math}.
+\end{itemize}
 
 
 \end{document}
