@@ -39,7 +39,7 @@ class TextWorldPreproc(gym.Wrapper):
         if not isinstance(env.observation_space, tw_spaces.Word):
             raise ValueError(
                 "Env should expose textworld obs, "
-                "got %s insteadß" % env.observation_space)
+                "got %s instead" % env.observation_space)
         self._encode_raw_text = encode_raw_text
         self._encode_extra_field = tuple(encode_extra_fields)
         self._use_admissible_commands = use_admissible_commands
