@@ -154,7 +154,8 @@ if __name__ == "__main__":
     def process_batch(trainer, batch):
         gen_input_v = torch.FloatTensor(
             BATCH_SIZE, LATENT_VECTOR_SIZE, 1, 1)
-        gen_input_v.normal_(0, 1).to(device)
+        gen_input_v.normal_(0, 1)
+        gen_input_v = gen_input_v.to(device)
         batch_v = batch.to(device)
         gen_output_v = net_gener(gen_input_v)
 
