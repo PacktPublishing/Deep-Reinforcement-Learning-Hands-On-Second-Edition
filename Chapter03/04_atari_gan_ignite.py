@@ -190,9 +190,9 @@ if __name__ == "__main__":
     engine = Engine(process_batch)
     tb = tb_logger.TensorboardLogger(log_dir=None)
     engine.tb = tb
-    RunningAverage(output_transform=lambda out: out[0]).\
-        attach(engine, "avg_loss_gen")
     RunningAverage(output_transform=lambda out: out[1]).\
+        attach(engine, "avg_loss_gen")
+    RunningAverage(output_transform=lambda out: out[0]).\
         attach(engine, "avg_loss_dis")
 
     handler = tb_logger.OutputHandler(tag="train",
