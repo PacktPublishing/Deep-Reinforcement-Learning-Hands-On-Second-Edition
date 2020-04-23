@@ -38,6 +38,7 @@ if __name__ == "__main__":
         mu_v = net(obs_v)
         action = mu_v.squeeze(dim=0).data.numpy()
         action = np.clip(action, -1, 1)
+        if np.isscalar(action): action = [action]
         obs, reward, done, _ = env.step(action)
         total_reward += reward
         total_steps += 1
