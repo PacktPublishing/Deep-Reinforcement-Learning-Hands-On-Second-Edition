@@ -13,7 +13,8 @@ def test_net(net, env, count=10, device="cpu"):
             mu_v = net(obs_v)[0]
             action = mu_v.squeeze(dim=0).data.cpu().numpy()
             action = np.clip(action, -1, 1)
-            if np.isscalar(action): action = [action]
+            if np.isscalar(action): 
+                action = [action]
             obs, reward, done, _ = env.step(action)
             rewards += reward
             steps += 1
