@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import gym
+from gym import wrappers
 import roboschool
 
 from lib import model, kfac
@@ -23,7 +24,7 @@ if __name__ == "__main__":
 
     env = gym.make(args.env)
     if args.record:
-        env = gym.wrappers.Monitor(env, args.record)
+        env = wrappers.Monitor(env, args.record)
 
     net = model.ModelActor(env.observation_space.shape[0], env.action_space.shape[0])
     if args.acktr:
@@ -38,6 +39,8 @@ if __name__ == "__main__":
         mu_v = net(obs_v)
         action = mu_v.squeeze(dim=0).data.numpy()
         action = np.clip(action, -1, 1)
+        if np.isscalar(action): 
+            action = [action]
         obs, reward, done, _ = env.step(action)
         total_reward += reward
         total_steps += 1
