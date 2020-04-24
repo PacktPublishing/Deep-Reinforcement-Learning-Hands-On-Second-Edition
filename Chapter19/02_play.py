@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import gym
+from gym import wrappers
 import roboschool
 
 from lib import model, kfac
@@ -23,7 +24,7 @@ if __name__ == "__main__":
 
     env = gym.make(args.env)
     if args.record:
-        env = gym.wrappers.Monitor(env, args.record)
+        env = wrappers.Monitor(env, args.record)
 
     net = model.ModelActor(env.observation_space.shape[0], env.action_space.shape[0])
     if args.acktr:
