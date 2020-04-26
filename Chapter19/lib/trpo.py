@@ -73,7 +73,7 @@ def trpo_step(model, get_loss, get_kl, max_kl, damping, device="cpu"):
         grads = torch.autograd.grad(kl, model.parameters(), create_graph=True)
         flat_grad_kl = torch.cat([grad.view(-1) for grad in grads])
 
-        v_v = torch.tensor(v).to(device)
+        v_v = v.clone().detach().to(device)
         kl_v = (flat_grad_kl * v_v).sum()
         grads = torch.autograd.grad(kl_v, model.parameters())
         flat_grad_grad_kl = torch.cat([grad.contiguous().view(-1) for grad in grads]).data
