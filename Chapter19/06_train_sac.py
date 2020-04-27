@@ -4,7 +4,6 @@ import ptan
 import gym
 import math
 import time
-import roboschool
 import argparse
 from tensorboardX import SummaryWriter
 import numpy as np
@@ -17,7 +16,7 @@ import torch.distributions as distrib
 import torch.nn.functional as F
 
 
-ENV_ID = "RoboschoolHalfCheetah-v1"
+ENV_ID = "Pendlum-v0"
 GAMMA = 0.99
 BATCH_SIZE = 64
 LR_ACTS = 1e-4

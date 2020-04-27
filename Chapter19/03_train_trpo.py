@@ -4,7 +4,6 @@ import math
 import ptan
 import time
 import gym
-import roboschool
 import argparse
 from tensorboardX import SummaryWriter
 
@@ -16,7 +15,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 
-ENV_ID = "RoboschoolHalfCheetah-v1"
+ENV_ID = "Pendulum-v0"
 GAMMA = 0.99
 GAE_LAMBDA = 0.95
 

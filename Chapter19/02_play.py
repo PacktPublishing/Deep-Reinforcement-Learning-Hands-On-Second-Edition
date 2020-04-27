@@ -2,7 +2,6 @@
 import argparse
 import gym
 from gym import wrappers
-import roboschool
 
 from lib import model, kfac
 from PIL import Image
@@ -11,7 +10,7 @@ import numpy as np
 import torch
 
 
-ENV_ID = "RoboschoolHalfCheetah-v1"
+ENV_ID = "Pendulum-v0"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
