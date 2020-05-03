@@ -16,6 +16,7 @@ import torch.nn.functional as F
 
 
 ENV_ID = "Pendulum-v0"
+NHID = 64
 GAMMA = 0.99
 REWARD_STEPS = 5
 BATCH_SIZE = 32
@@ -31,6 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", default=False, action='store_true', help='Enable CUDA')
     parser.add_argument("-n", "--name", required=True, help="Name of the run")
     parser.add_argument("-e", "--env", default=ENV_ID, help="Environment id, default=" + ENV_ID)
+    parser.add_argument("--hid", default=NHID, type=int, help="Hidden units, default=" + str(NHID))
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
@@ -40,8 +42,8 @@ if __name__ == "__main__":
     envs = [gym.make(args.env) for _ in range(ENVS_COUNT)]
     test_env = gym.make(args.env)
 
-    net_act = model.ModelActor(envs[0].observation_space.shape[0], envs[0].action_space.shape[0]).to(device)
-    net_crt = model.ModelCritic(envs[0].observation_space.shape[0]).to(device)
+    net_act = model.ModelActor(envs[0].observation_space.shape[0], envs[0].action_space.shape[0], args.hid).to(device)
+    net_crt = model.ModelCritic(envs[0].observation_space.shape[0], args.hid).to(device)
     print(net_act)
     print(net_crt)
 

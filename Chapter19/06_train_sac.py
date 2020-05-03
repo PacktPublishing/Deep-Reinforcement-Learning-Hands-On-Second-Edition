@@ -16,7 +16,8 @@ import torch.distributions as distrib
 import torch.nn.functional as F
 
 
-ENV_ID = "Pendlum-v0"
+ENV_ID = "Pendulum-v0"
+NHID = 64
 GAMMA = 0.99
 BATCH_SIZE = 64
 LR_ACTS = 1e-4
@@ -32,6 +33,7 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", default=False, action='store_true', help='Enable CUDA')
     parser.add_argument("-n", "--name", required=True, help="Name of the run")
     parser.add_argument("-e", "--env", default=ENV_ID, help="Environment id, default=" + ENV_ID)
+    parser.add_argument("--hid", default=NHID, type=int, help="Hidden units, default=" + str(NHID))
     args = parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
 
@@ -41,15 +43,9 @@ if __name__ == "__main__":
     env = gym.make(args.env)
     test_env = gym.make(args.env)
 
-    act_net = model.ModelActor(
-        env.observation_space.shape[0],
-        env.action_space.shape[0]).to(device)
-    crt_net = model.ModelCritic(
-        env.observation_space.shape[0]
-    ).to(device)
-    twinq_net = model.ModelSACTwinQ(
-        env.observation_space.shape[0],
-        env.action_space.shape[0]).to(device)
+    act_net = model.ModelActor( env.observation_space.shape[0], env.action_space.shape[0], args.hid).to(device)
+    crt_net = model.ModelCritic( env.observation_space.shape[0], args.hid).to(device)
+    twinq_net = model.ModelSACTwinQ( env.observation_space.shape[0], env.action_space.shape[0]).to(device)
     print(act_net)
     print(crt_net)
     print(twinq_net)
