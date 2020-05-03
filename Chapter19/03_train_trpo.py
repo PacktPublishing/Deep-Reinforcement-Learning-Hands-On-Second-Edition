@@ -14,6 +14,7 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
+NHID = 64
 
 ENV_ID = "Pendulum-v0"
 GAMMA = 0.99
@@ -61,6 +62,7 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", default=False, action='store_true', help='Enable CUDA')
     parser.add_argument("-n", "--name", required=True, help="Name of the run")
     parser.add_argument("-e", "--env", default=ENV_ID, help="Environment id, default=" + ENV_ID)
+    parser.add_argument("--hid", default=NHID, type=int, help="Hidden units, default=" + str(NHID))
     parser.add_argument("--lr", default=LEARNING_RATE_CRITIC, type=float, help="Critic learning rate")
     parser.add_argument("--maxkl", default=TRPO_MAX_KL, type=float, help="Maximum KL divergence")
     args = parser.parse_args()
@@ -72,8 +74,8 @@ if __name__ == "__main__":
     env = gym.make(args.env)
     test_env = gym.make(args.env)
 
-    net_act = model.ModelActor(env.observation_space.shape[0], env.action_space.shape[0]).to(device)
-    net_crt = model.ModelCritic(env.observation_space.shape[0]).to(device)
+    net_act = model.ModelActor(env.observation_space.shape[0], env.action_space.shape[0], args.hid).to(device)
+    net_crt = model.ModelCritic(env.observation_space.shape[0], args.hid).to(device)
     print(net_act)
     print(net_crt)
 
