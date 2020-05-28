@@ -2,19 +2,14 @@
 import os
 import ptan
 import gym
-import math
 import time
-import argparse
 from tensorboardX import SummaryWriter
-import numpy as np
 
-from lib import model, common, test_net, make_parser
+from lib import model, common, test_net, make_parser, parse_args
 
 import torch
 import torch.optim as optim
-import torch.distributions as distrib
 import torch.nn.functional as F
-
 
 GAMMA = 0.99
 BATCH_SIZE = 64
@@ -30,14 +25,9 @@ if __name__ == "__main__":
 
     parser = make_parser()
 
-    args = parser.parse_args()
-
-    device = torch.device("cuda" if args.cuda else "cpu")
-    save_path = os.path.join("saves", "sac-" + args.name)
-    os.makedirs(save_path, exist_ok=True)
+    args, device, save_path, test_env = parse_args(parser)
 
     env = gym.make(args.env)
-    test_env = gym.make(args.env)
 
     act_net = model.ModelActor( env.observation_space.shape[0], env.action_space.shape[0], args.hid).to(device)
     crt_net = model.ModelCritic( env.observation_space.shape[0], args.hid).to(device)

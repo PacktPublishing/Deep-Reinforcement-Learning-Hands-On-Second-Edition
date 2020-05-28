@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 import os
-import math
 import ptan
 import time
 import gym
-import argparse
 from tensorboardX import SummaryWriter
 
-from lib import model, test_net, calc_logprob, make_parser
+from lib import model, test_net, calc_logprob, make_parser, parse_args
 
 import numpy as np
 import torch
@@ -65,15 +63,10 @@ if __name__ == "__main__":
 
     parser.add_argument("--lrc", default=LEARNING_RATE_CRITIC, type=float, help="Critic learning rate")
     parser.add_argument("--lra", default=LEARNING_RATE_ACTOR, type=float, help="Actor learning rate")
-    args = parser.parse_args()
 
-    device = torch.device("cuda" if args.cuda else "cpu")
-
-    save_path = os.path.join("saves", "ppo-" + args.name)
-    os.makedirs(save_path, exist_ok=True)
+    args, device, save_path, test_env = parse_args(parser)
 
     env = gym.make(args.env)
-    test_env = gym.make(args.env)
 
     net_act = model.ModelActor(env.observation_space.shape[0], env.action_space.shape[0], args.hid).to(device)
     net_crt = model.ModelCritic(env.observation_space.shape[0], args.hid).to(device)

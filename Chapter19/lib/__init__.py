@@ -1,8 +1,10 @@
 import ptan
 import numpy as np
 import torch
+import gym
 import math
 import argparse
+import os
 
 def make_parser(env_id="Pendulum-v0", nhid=64):
 
@@ -14,6 +16,14 @@ def make_parser(env_id="Pendulum-v0", nhid=64):
     parser.add_argument("--hid", default=nhid, type=int, help="Hidden units, default=" + str(nhid))
 
     return parser
+
+def parse_args(parser):
+    args = parser.parse_args()
+    device = torch.device("cuda" if args.cuda else "cpu")
+    save_path = os.path.join("saves", "a2c-" + args.name)
+    os.makedirs(save_path, exist_ok=True)
+    test_env = gym.make(args.env)
+    return args, device, save_path, test_env
 
 def test_net(net, env, count=10, device="cpu"):
     rewards = 0.0

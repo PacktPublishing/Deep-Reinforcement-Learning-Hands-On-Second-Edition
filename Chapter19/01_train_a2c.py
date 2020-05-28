@@ -6,7 +6,7 @@ import time
 import gym
 from tensorboardX import SummaryWriter
 
-from lib import model, common, test_net, calc_logprob, make_parser
+from lib import model, common, test_net, calc_logprob, make_parser, parse_args
 
 import numpy as np
 import torch
@@ -23,20 +23,13 @@ ENVS_COUNT = 16
 
 TEST_ITERS = 100000
 
-
 if __name__ == "__main__":
 
     parser = make_parser()
 
-    args = parser.parse_args()
-
-    device = torch.device("cuda" if args.cuda else "cpu")
-
-    save_path = os.path.join("saves", "a2c-" + args.name)
-    os.makedirs(save_path, exist_ok=True)
+    args, device, save_path, test_env = parse_args(parser)
 
     envs = [gym.make(args.env) for _ in range(ENVS_COUNT)]
-    test_env = gym.make(args.env)
 
     net_act = model.ModelActor(envs[0].observation_space.shape[0], envs[0].action_space.shape[0], args.hid).to(device)
     net_crt = model.ModelCritic(envs[0].observation_space.shape[0], args.hid).to(device)
