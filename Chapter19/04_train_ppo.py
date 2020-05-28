@@ -25,7 +25,7 @@ LEARNING_RATE_ACTOR = 1e-5
 LEARNING_RATE_CRITIC = 1e-4
 
 PPO_EPS = 0.2
-PPO_EPOCHES = 10
+PPO_EPOCHS = 10
 PPO_BATCH_SIZE = 64
 
 TEST_ITERS = 100000
@@ -143,7 +143,7 @@ if __name__ == "__main__":
             sum_loss_policy = 0.0
             count_steps = 0
 
-            for epoch in range(PPO_EPOCHES):
+            for epoch in range(PPO_EPOCHS):
                 for batch_ofs in range(0, len(trajectory),
                                        PPO_BATCH_SIZE):
                     batch_l = batch_ofs + PPO_BATCH_SIZE
