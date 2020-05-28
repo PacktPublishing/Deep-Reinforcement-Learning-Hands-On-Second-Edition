@@ -8,7 +8,7 @@ import argparse
 from tensorboardX import SummaryWriter
 import numpy as np
 
-from lib import model, common, test_net
+from lib import model, common, test_net, make_parser
 
 import torch
 import torch.optim as optim
@@ -16,8 +16,6 @@ import torch.distributions as distrib
 import torch.nn.functional as F
 
 
-ENV_ID = "Pendulum-v0"
-NHID = 64
 GAMMA = 0.99
 BATCH_SIZE = 64
 LR_ACTS = 1e-4
@@ -30,11 +28,7 @@ TEST_ITERS = 10000
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cuda", default=False, action='store_true', help='Enable CUDA')
-    parser.add_argument("-n", "--name", required=True, help="Name of the run")
-    parser.add_argument("-e", "--env", default=ENV_ID, help="Environment id, default=" + ENV_ID)
-    parser.add_argument("--hid", default=NHID, type=int, help="Hidden units, default=" + str(NHID))
+    parser = make_parser()
 
     args = parser.parse_args()
 

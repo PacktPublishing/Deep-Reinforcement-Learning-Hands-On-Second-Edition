@@ -4,19 +4,15 @@ import math
 import ptan
 import time
 import gym
-import argparse
 from tensorboardX import SummaryWriter
 
-from lib import model, trpo, test_net, calc_logprob
+from lib import model, trpo, test_net, calc_logprob, make_parser
 
 import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
-NHID = 64
-
-ENV_ID = "Pendulum-v0"
 GAMMA = 0.99
 GAE_LAMBDA = 0.95
 
@@ -59,11 +55,7 @@ def calc_adv_ref(trajectory, net_crt, states_v, device="cpu"):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cuda", default=False, action='store_true', help='Enable CUDA')
-    parser.add_argument("-n", "--name", required=True, help="Name of the run")
-    parser.add_argument("-e", "--env", default=ENV_ID, help="Environment id, default=" + ENV_ID)
-    parser.add_argument("--hid", default=NHID, type=int, help="Hidden units, default=" + str(NHID))
+    parser = make_parser()
 
     parser.add_argument("--lr", default=LEARNING_RATE_CRITIC, type=float, help="Critic learning rate")
     parser.add_argument("--maxkl", default=TRPO_MAX_KL, type=float, help="Maximum KL divergence")

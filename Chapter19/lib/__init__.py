@@ -2,6 +2,18 @@ import ptan
 import numpy as np
 import torch
 import math
+import argparse
+
+def make_parser(env_id="Pendulum-v0", nhid=64):
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--cuda", default=False, action='store_true', help='Enable CUDA')
+    parser.add_argument("-n", "--name", required=True, help="Name of the run")
+    parser.add_argument("-e", "--env", default=env_id, help="Environment id, default=" + env_id)
+    parser.add_argument("--hid", default=nhid, type=int, help="Hidden units, default=" + str(nhid))
+
+    return parser
 
 def test_net(net, env, count=10, device="cpu"):
     rewards = 0.0
