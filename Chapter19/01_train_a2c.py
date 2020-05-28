@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     parser = make_parser()
 
-    args, device, save_path, test_env = parse_args(parser)
+    args, device, save_path, test_env, maxeps = parse_args(parser)
 
     envs = [gym.make(args.env) for _ in range(ENVS_COUNT)]
 
@@ -48,7 +48,12 @@ if __name__ == "__main__":
     with ptan.common.utils.RewardTracker(writer) as tracker:
         with ptan.common.utils.TBMeanTracker(writer, batch_size=100) as tb_tracker:
             for step_idx, exp in enumerate(exp_source):
+
+                if len(tracker.total_rewards) >= maxeps:
+                    break
+
                 rewards_steps = exp_source.pop_rewards_steps()
+
                 if rewards_steps:
                     rewards, steps = zip(*rewards_steps)
                     tb_tracker.track("episode_steps", np.mean(steps), step_idx)

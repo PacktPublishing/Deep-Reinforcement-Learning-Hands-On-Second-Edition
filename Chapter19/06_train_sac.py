@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     parser = make_parser()
 
-    args, device, save_path, test_env = parse_args(parser)
+    args, device, save_path, test_env, maxeps = parse_args(parser)
 
     env = gym.make(args.env)
 
@@ -54,6 +54,10 @@ if __name__ == "__main__":
         with ptan.common.utils.TBMeanTracker(
                 writer, batch_size=10) as tb_tracker:
             while True:
+
+                if len(tracker.total_rewards) >= maxeps:
+                    break
+
                 frame_idx += 1
                 buffer.populate(1)
                 rewards_steps = exp_source.pop_rewards_steps()

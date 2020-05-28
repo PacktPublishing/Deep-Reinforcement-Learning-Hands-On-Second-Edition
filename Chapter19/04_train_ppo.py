@@ -64,7 +64,7 @@ if __name__ == "__main__":
     parser.add_argument("--lrc", default=LEARNING_RATE_CRITIC, type=float, help="Critic learning rate")
     parser.add_argument("--lra", default=LEARNING_RATE_ACTOR, type=float, help="Actor learning rate")
 
-    args, device, save_path, test_env = parse_args(parser)
+    args, device, save_path, test_env, maxeps = parse_args(parser)
 
     env = gym.make(args.env)
 
@@ -84,7 +84,12 @@ if __name__ == "__main__":
     best_reward = None
     with ptan.common.utils.RewardTracker(writer) as tracker:
         for step_idx, exp in enumerate(exp_source):
+
+            if len(tracker.total_rewards) >= maxeps:
+                break
+
             rewards_steps = exp_source.pop_rewards_steps()
+
             if rewards_steps:
                 rewards, steps = zip(*rewards_steps)
                 writer.add_scalar("episode_steps", np.mean(steps), step_idx)
