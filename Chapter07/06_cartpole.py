@@ -67,7 +67,7 @@ if __name__ == "__main__":
         epsilon=1, selector=selector)
     agent = ptan.agent.DQNAgent(net, selector)
     exp_source = ptan.experience.ExperienceSourceFirstLast(
-        env, agent, gamma=GAMMA)
+        env, agent, gamma=GAMMA, steps_count=1)
     buffer = ptan.experience.ExperienceReplayBuffer(
         exp_source, buffer_size=REPLAY_SIZE)
     optimizer = optim.Adam(net.parameters(), LR)
@@ -82,8 +82,8 @@ if __name__ == "__main__":
 
         for reward, steps in exp_source.pop_rewards_steps():
             episode += 1
-            print("%d: episode %d done, reward=%.3f, epsilon=%.2f" % (
-                step, episode, reward, selector.epsilon))
+            print("%d: episode %d done in %d steps, reward=%.3f, epsilon=%.2f" % (
+                step, episode, steps, reward, selector.epsilon))
             solved = reward > 150
         if solved:
             print("Congrats!")
