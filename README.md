@@ -10,9 +10,9 @@ major pytorch version code was tested. Due to incompatibilities in pytorch and o
 **code in the printed book might differ from the code in the repo**.
 
 At the moment, there are the following branches available:
+* `master`: contains the code with the latest pytorch which was tested. At the moment, it is pytorch 1.3.
 * `torch-1.3-book`: code printed in the book with minor bug fixes. Uses pytorch=1.3 which 
 is available only on conda repos.
-* `master`: contains the code with the latest pytorch which was tested. At the moment, it is pytorch 1.3.
 * `torch-1.7`: pytorch 1.7. This branch is still under testing.  
 
 All the branches uses python 3.7, more recent versions weren't tested.
