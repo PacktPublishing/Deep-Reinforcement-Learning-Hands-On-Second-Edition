@@ -16,3 +16,16 @@ is available only on conda repos.
 * `torch-1.7`: pytorch 1.7. This branch is still under testing.  
 
 All the branches uses python 3.7, more recent versions weren't tested.
+
+## Dependencies installation
+
+Anaconda is recommended for virtual environment creation.
+Once installed, the following steps will install everything needed:
+
+* change directory to book repository dir: `cd Deep-Reinforcement-Learning-Hands-On-Second-Edition`
+* create virtual environment with `conda create -n rlbook python=3.7`
+* activate it: `conda activate rlbook`
+* install pytorch (update CUDA version according to your CUDA): `conda install pytorch==1.7 torchvision torchaudio cudatoolkit=10.2 -c pytorch`
+* install rest of dependencies: `pip install requirements.txt`
+
+Now you're ready to launch and experiment with examples!
