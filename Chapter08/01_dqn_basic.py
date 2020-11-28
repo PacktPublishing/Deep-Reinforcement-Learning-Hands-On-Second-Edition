@@ -9,7 +9,7 @@ import torch.optim as optim
 
 from ignite.engine import Engine
 
-from lib import dqn_model, common
+from Chapter08.lib import common, dqn_model
 
 NAME = "01_baseline"
 
