@@ -24,7 +24,7 @@ LEARNING_RATE = 1e-5
 # have to be less or equal to env.action_space.max_length
 LM_MAX_TOKENS = 4
 LM_MAX_COMMANDS = 10
-LM_STOP_AVG_REWARD = -0.5
+LM_STOP_AVG_REWARD = -1.0
 
 
 EXTRA_GAME_INFO = {
