@@ -4,7 +4,7 @@ import math
 import ptan
 import time
 import gym
-import roboschool
+import pybullet_envs
 import argparse
 from tensorboardX import SummaryWriter
 
@@ -16,7 +16,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 
-ENV_ID = "RoboschoolHalfCheetah-v1"
+ENV_ID = "HalfCheetahBulletEnv-v0"
 GAMMA = 0.99
 REWARD_STEPS = 5
 BATCH_SIZE = 32
