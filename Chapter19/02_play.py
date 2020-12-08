@@ -2,7 +2,7 @@
 import argparse
 import gym
 from gym import wrappers
-import roboschool
+import pybullet_envs
 
 from lib import model, kfac
 from PIL import Image
@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 
-ENV_ID = "RoboschoolHalfCheetah-v1"
+ENV_ID = "HalfCheetahBulletEnv-v0"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
