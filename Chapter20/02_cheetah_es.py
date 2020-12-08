@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import gym
-import roboschool
+import pybullet_envs
 import ptan
 import time
 import argparse
@@ -31,7 +31,7 @@ RewardsItem = collections.namedtuple(
 
 
 def make_env():
-    return gym.make("RoboschoolHalfCheetah-v1")
+    return gym.make("HalfCheetahBulletEnv-v0")
 
 
 class Net(nn.Module):
