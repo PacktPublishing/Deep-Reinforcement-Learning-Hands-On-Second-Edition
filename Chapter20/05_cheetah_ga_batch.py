@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import gym
-import roboschool
+import pybullet_envs
 import argparse
 import itertools
 import collections
@@ -144,7 +144,7 @@ OutputItem = collections.namedtuple('OutputItem', field_names=['seeds', 'reward'
 
 
 def worker_func(input_queue, output_queue, device="cpu"):
-    env_pool = [gym.make("RoboschoolHalfCheetah-v1")]
+    env_pool = [gym.make("HalfCheetahBulletEnvs-v0")]
 
     # first generation -- just evaluate given single seeds
     parents = input_queue.get()
@@ -166,7 +166,7 @@ def worker_func(input_queue, output_queue, device="cpu"):
             net.set_noise_seeds(children_seeds)
             batch_size = len(children_seeds)
             while len(env_pool) < batch_size:
-                env_pool.append(gym.make("RoboschoolHalfCheetah-v1"))
+                env_pool.append(gym.make("HalfCheetahBulletEnv-v0"))
             rewards, steps = evaluate_batch(env_pool[:batch_size], net, device)
             for seeds, reward, step in zip(batch, rewards, steps):
                 output_queue.put((seeds, reward, step))

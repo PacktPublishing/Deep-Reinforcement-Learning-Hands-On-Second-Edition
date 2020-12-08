@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import gym
-import roboschool
+import pybullet_envs
 import collections
 import copy
 import time
@@ -78,7 +78,7 @@ OutputItem = collections.namedtuple(
 
 
 def worker_func(input_queue, output_queue):
-    env = gym.make("RoboschoolHalfCheetah-v1")
+    env = gym.make("HalfCheetahBulletEnv-v0")
     cache = {}
 
     while True:
