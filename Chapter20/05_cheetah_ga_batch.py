@@ -144,7 +144,7 @@ OutputItem = collections.namedtuple('OutputItem', field_names=['seeds', 'reward'
 
 
 def worker_func(input_queue, output_queue, device="cpu"):
-    env_pool = [gym.make("HalfCheetahBulletEnvs-v0")]
+    env_pool = [gym.make("HalfCheetahBulletEnv-v0")]
 
     # first generation -- just evaluate given single seeds
     parents = input_queue.get()
