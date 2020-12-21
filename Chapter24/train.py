@@ -57,11 +57,6 @@ if __name__ == "__main__":
     log.info("Generated buffer of size %d", len(scramble_buf))
 
     while True:
-        if config.train_lr_decay_enabled and step_idx % config.train_lr_decay_batches == 0:
-            sched.step()
-            log.info("LR decrease to %s", sched.get_lr()[0])
-            writer.add_scalar("lr", sched.get_lr()[0], step_idx)
-
         step_idx += 1
         x_t, weights_t, y_policy_t, y_value_t = model.sample_batch(
             scramble_buf, net, device, config.train_batch_size, value_targets_method)
@@ -83,6 +78,11 @@ if __name__ == "__main__":
         loss_t = value_loss_t + policy_loss_t
         loss_t.backward()
         opt.step()
+
+        if config.train_lr_decay_enabled and step_idx % config.train_lr_decay_batches == 0:
+            sched.step()
+            log.info("LR decrease to %s", sched.get_last_lr()[0])
+            writer.add_scalar("lr", sched.get_last_lr()[0], step_idx)
 
         # save data
         buf_mean_values.append(value_out_t.mean().item())

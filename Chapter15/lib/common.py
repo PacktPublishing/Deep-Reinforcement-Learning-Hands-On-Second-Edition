@@ -1,5 +1,10 @@
+import os
+import textworld
+import textworld.text_utils
+from textworld.gym.spaces import text_spaces
+
 import warnings
-from typing import Iterable
+from typing import Iterable, List, Tuple
 from types import SimpleNamespace
 from datetime import timedelta, datetime
 
@@ -89,3 +94,10 @@ def setup_ignite(engine: Engine, exp_source, run_name: str,
         output_transform=lambda a: a)
     event = ptan_ignite.PeriodEvents.ITERS_100_COMPLETED
     tb.attach(engine, log_handler=handler, event_name=event)
+
+
+def get_games_spaces(game_files: List[str]) -> tuple:
+    vocab = textworld.text_utils.extract_vocab_from_gamefiles(game_files)
+    action_space = text_spaces.Word(max_length=200, vocab=vocab)
+    observation_space = text_spaces.Word(max_length=8, vocab=vocab)
+    return action_space, observation_space

@@ -7,7 +7,7 @@ import itertools
 import numpy as np
 from typing import List
 from textworld.gym import register_games
-from textworld.envs.wrappers.filter import EnvInfos
+from textworld import EnvInfos
 
 from lib import preproc, model, common
 
@@ -24,7 +24,7 @@ LEARNING_RATE = 1e-5
 # have to be less or equal to env.action_space.max_length
 LM_MAX_TOKENS = 4
 LM_MAX_COMMANDS = 10
-LM_STOP_AVG_REWARD = -0.5
+LM_STOP_AVG_REWARD = -1.0
 
 
 EXTRA_GAME_INFO = {
@@ -82,12 +82,15 @@ if __name__ == "__main__":
     params = common.PARAMS[args.params]
 
     game_files = ["games/%s%s.ulx" % (args.game, s) for s in range(1, args.suffices+1)]
+    val_game_file = "games/%s%s.ulx" % (args.game, args.validation)
     if not all(map(lambda p: pathlib.Path(p).exists(), game_files)):
         raise RuntimeError(f"Some game files from {game_files} not found! Probably you need to run make_games.sh")
-    env_id = register_games(game_files, request_infos=EnvInfos(**EXTRA_GAME_INFO), name=args.game)
+    action_space, observation_space = common.get_games_spaces(game_files + [val_game_file])
+    env_id = register_games(game_files, request_infos=EnvInfos(**EXTRA_GAME_INFO), name=args.game,
+                            action_space=action_space, observation_space=observation_space)
     print("Registered env %s for game files %s" % (env_id, game_files))
-    val_game_file = "games/%s%s.ulx" % (args.game, args.validation)
-    val_env_id = register_games([val_game_file], request_infos=EnvInfos(**EXTRA_GAME_INFO), name=args.game)
+    val_env_id = register_games([val_game_file], request_infos=EnvInfos(**EXTRA_GAME_INFO), name=args.game,
+                                action_space=action_space, observation_space=observation_space)
     print("Game %s, with file %s will be used for validation" % (val_env_id, val_game_file))
 
     env = gym.make(env_id)

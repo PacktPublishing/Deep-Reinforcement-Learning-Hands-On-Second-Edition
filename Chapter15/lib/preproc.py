@@ -101,8 +101,7 @@ class TextWorldPreproc(gym.Wrapper):
         if self._use_intermedate_reward:
             r += extra.get('intermediate_reward', 0)
         if self._reward_wrong_last_command is not None:
-            # that value is here if we gave a nonsense command
-            if extra.get('last_command', '') == 'None':
+            if action not in self._last_extra_info['admissible_commands']:
                 r += self._reward_wrong_last_command
         new_extra = dict(extra)
         fields = list(self._encode_extra_field)
