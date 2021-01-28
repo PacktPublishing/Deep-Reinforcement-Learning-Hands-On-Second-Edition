@@ -70,7 +70,7 @@ class Agent:
         done_reward = None
 
         if np.random.random() < epsilon:
-            action = env.action_space.sample()
+            action = self.env.action_space.sample()
         else:
             state_a = np.array([self.state], copy=False)
             state_v = torch.tensor(state_a).to(device)
