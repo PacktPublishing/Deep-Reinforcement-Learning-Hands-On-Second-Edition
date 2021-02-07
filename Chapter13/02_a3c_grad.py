@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import gym
+import copy
 import ptan
 import argparse
 from tensorboardX import SummaryWriter
@@ -75,8 +76,8 @@ def grads_func(proc_name, net, device, train_queue):
 
                 batch.clear()
 
-                net.zero_grad()
-                logits_v, value_v = net(states_v)
+                net_local = copy.deepcopy(net)
+                logits_v, value_v = net_local(states_v)
                 loss_value_v = F.mse_loss(
                     value_v.squeeze(-1), vals_ref_v)
 
@@ -107,12 +108,10 @@ def grads_func(proc_name, net, device, train_queue):
                 tb_tracker.track("loss_total", loss_v, frame_idx)
 
                 # gather gradients
-                nn_utils.clip_grad_norm_(
-                    net.parameters(), CLIP_GRAD)
                 grads = [
                     param.grad.data.cpu().numpy()
                     if param.grad is not None else None
-                    for param in net.parameters()
+                    for param in net_local.parameters()
                 ]
                 train_queue.put(grads)
 
@@ -133,6 +132,7 @@ if __name__ == "__main__":
     env = make_env()
     net = common.AtariA2C(env.observation_space.shape,
                           env.action_space.n).to(device)
+    net.zero_grad()
     net.share_memory()
 
     optimizer = optim.Adam(net.parameters(),
@@ -174,6 +174,7 @@ if __name__ == "__main__":
                 nn_utils.clip_grad_norm_(
                     net.parameters(), CLIP_GRAD)
                 optimizer.step()
+                optimizer.zero_grad()
                 grad_buffer = None
     finally:
         for p in data_proc_list:
