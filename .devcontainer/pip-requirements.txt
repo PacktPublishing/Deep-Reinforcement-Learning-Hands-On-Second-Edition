@@ -1,0 +1,14 @@
+atari-py
+gym
+numpy
+opencv-python
+tensorboard
+torch
+torchvision
+pytorch-ignite
+tensorboardX
+tensorflow
+nltk
+pybullet
+ptan
+matplotlib
