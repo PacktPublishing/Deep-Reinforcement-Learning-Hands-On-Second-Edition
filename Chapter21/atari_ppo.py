@@ -113,9 +113,9 @@ if __name__ == "__main__":
     agent = ptan.agent.PolicyAgent(lambda x: net(x)[0], apply_softmax=True, preprocessor=ptan.agent.float32_preprocessor,
                                    device=device)
     if do_distill:
-        exp_source = common.DistillExperienceSource(env, agent, steps_count=1)
+        exp_source = common.DistillExperienceSource(envs, agent, steps_count=1)
     else:
-        exp_source = ptan.experience.ExperienceSource(env, agent, steps_count=1)
+        exp_source = ptan.experience.ExperienceSource(envs, agent, steps_count=1)
 
     optimizer = optim.Adam(net.parameters(), lr=params.lr)
     if do_distill:
