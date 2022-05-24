@@ -7,7 +7,7 @@ torch==1.7.0
 torchvision==0.8.1
 pytorch-ignite==0.4.2
 tensorboardX==2.1
-tensorflow==2.3.1
+tensorflow==2.6.4
 nltk==3.5
 pybullet==3.0.7
 ptan==0.7
