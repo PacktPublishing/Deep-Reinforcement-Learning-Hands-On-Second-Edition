@@ -26,6 +26,6 @@ Once installed, the following steps will install everything needed:
 * create virtual environment with `conda create -n rlbook python=3.7`
 * activate it: `conda activate rlbook`
 * install pytorch (update CUDA version according to your CUDA): `conda install pytorch==1.7 torchvision torchaudio cudatoolkit=10.2 -c pytorch`
-* install rest of dependencies: `pip install requirements.txt`
+* install rest of dependencies: `pip install -r requirements.txt`
 
 Now you're ready to launch and experiment with examples!
