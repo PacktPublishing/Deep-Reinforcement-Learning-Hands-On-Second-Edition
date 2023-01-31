@@ -87,6 +87,35 @@ class NoisyFactorizedLinear(nn.Linear):
         return F.linear(input, v, bias)
 
 
+class NoysiDQNdiscrete(nn.Module):
+    def __init__(self, input_shape, n_actions):
+        super(NoysiDQNdiscrete, self).__init__()
+
+        self.noisy_layers = [
+            NoisyLinear(128, 64),
+            NoisyLinear(64,32),
+            NoisyLinear(32, n_actions)
+        ]
+        self.fc = nn.Sequential(
+            nn.Linear(input_shape[0], 128),
+            nn.ReLU(),
+            self.noisy_layers[0],
+            nn.ReLU(),
+            self.noisy_layers[1],
+            nn.ReLU(),
+            self.noisy_layers[2],
+        )
+
+    def forward(self, x):
+        fx = x.float()
+        return self.fc(fx)
+
+    def noisy_layers_sigma_snr(self):
+        return [
+            ((layer.weight ** 2).mean().sqrt() / (layer.sigma_weight ** 2).mean().sqrt()).item()
+            for layer in self.noisy_layers
+        ]
+
 class NoisyDQN(nn.Module):
     def __init__(self, input_shape, n_actions):
         super(NoisyDQN, self).__init__()
@@ -129,11 +158,11 @@ class NoisyDQN(nn.Module):
 
 class PrioReplayBuffer:
     def __init__(self, exp_source, buf_size, prob_alpha=0.6):
-        self.exp_source_iter = iter(exp_source)
+        self.exp_source_iter = iter(exp_source) # sars samples
         self.prob_alpha = prob_alpha
         self.capacity = buf_size
         self.pos = 0
-        self.buffer = []
+        self.buffer = [] # buffer
         self.priorities = np.zeros(
             (buf_size, ), dtype=np.float32)
         self.beta = BETA_START
@@ -165,13 +194,16 @@ class PrioReplayBuffer:
         else:
             prios = self.priorities[:self.pos]
         probs = prios ** self.prob_alpha
+        # P = p**apha / sum(p**apha) => probs; p =prios <= losses
 
         probs /= probs.sum()
         indices = np.random.choice(len(self.buffer),
-                                   batch_size, p=probs)
+                                   batch_size, p=probs) # pick out the indices of samples distributed acording to the probabilities.
+                                                        # one index can be picked multiple times
         samples = [self.buffer[idx] for idx in indices]
         total = len(self.buffer)
-        weights = (total * probs[indices]) ** (-self.beta)
+        # print(f'total: {total}; probs:: {probs}; beta: {self.beta}')
+        weights = (total * probs[indices]) ** (-self.beta) # w = (N * P)**(-beta);  beta =[0,1]
         weights /= weights.max()
         return samples, indices, \
                np.array(weights, dtype=np.float32)
@@ -181,6 +213,61 @@ class PrioReplayBuffer:
         for idx, prio in zip(batch_indices,
                              batch_priorities):
             self.priorities[idx] = prio
+
+
+class DuelingDQNDiscrete(nn.Module):
+    def __init__(self, input_shape, n_actions):
+        super(DuelingDQNDiscrete, self).__init__()
+
+        self.fc_adv = nn.Sequential(
+            nn.Linear(input_shape[0], 128),
+            nn.ReLU(),
+            nn.Linear(128, n_actions)
+        )
+        self.fc_val = nn.Sequential(
+            nn.Linear(input_shape[0], 128),
+            nn.ReLU(),
+            nn.Linear(128, 1)
+        )
+
+    def forward(self, x):
+        adv, val = self.adv_val(x)
+        return val + (adv - adv.mean(dim=1, keepdim=True))
+
+    def adv_val(self, x):
+        fx = x.float()
+        return self.fc_adv(fx), self.fc_val(fx)
+
+
+class DuelingNoisyDQNDiscrete(nn.Module):
+    def __init__(self, input_shape, n_actions):
+        super(DuelingNoisyDQNDiscrete, self).__init__()
+
+        self.noisy_layers = [
+            NoisyLinear(input_shape[0],128),
+            NoisyLinear(128, n_actions),
+            NoisyLinear(64, n_actions),
+            NoisyLinear(128, 1)
+        ]
+
+        self.fc_adv = nn.Sequential(
+            self.noisy_layers[0],
+            nn.ReLU(),
+            self.noisy_layers[1]
+        )
+        self.fc_val = nn.Sequential(
+            nn.Linear(input_shape[0], 128),
+            nn.ReLU(),
+            self.noisy_layers[3]
+        )
+
+    def forward(self, x):
+        adv, val = self.adv_val(x)
+        return val + (adv - adv.mean(dim=1, keepdim=True))
+
+    def adv_val(self, x):
+        fx = x.float()
+        return self.fc_adv(fx), self.fc_val(fx)
 
 
 class DuelingDQN(nn.Module):
@@ -317,6 +404,28 @@ def distr_projection(next_distr, rewards, dones, gamma):
                 (b_j - l)[ne_mask]
     return proj_distr
 
+
+class DQNdiscreteNoisy(nn.Module):
+    def __init__(self, input_shape, n_actions):
+        super(DQNdiscreteNoisy, self).__init__()
+        self.noisy_layers = [
+            NoisyLinear(128, 64),
+            NoisyLinear(64,32),
+            NoisyLinear(32, n_actions)
+        ]
+        self.fc = nn.Sequential(
+            nn.Linear(input_shape[0], 128),
+            nn.ReLU(),
+            self.noisy_layers[0],
+            nn.ReLU(),
+            self.noisy_layers[1],
+            nn.ReLU(),
+            self.noisy_layers[2],
+        )
+
+    def forward(self, x):
+        x = x.float()
+        return self.fc(x)
 
 class RainbowDQN(nn.Module):
     def __init__(self, input_shape, n_actions):

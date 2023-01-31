@@ -1,0 +1,21 @@
+name: lapan-dqn
+channels:
+- conda-forge
+- pytorch
+- defaults
+dependencies:
+- python=3.8
+- pytorch=1.7.0
+- torchvision=0.8.1
+- ignite=0.4.2
+- atari_py=0.2.6
+- tensorboard=2.4.0
+- tensorboardX=2.1
+- pip
+- pip:
+  - gym==0.17.3
+  - opencv-python==4.4.0.46
+  - nltk==3.5
+  - pybullet==3.0.7
+  - ptan==0.7
+  - matplotlib

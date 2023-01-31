@@ -7,9 +7,9 @@ import torch
 import torch.optim as optim
 from ignite.engine import Engine
 
-from lib import dqn_model, common
+from lib import dqn_extra, dqn_model, common
 
-NAME = "02_n_steps"
+NAME = "n_steps_noisy"
 DEFAULT_N_STEPS = 4
 
 
@@ -34,7 +34,7 @@ if __name__ == "__main__":
         net = dqn_model.DQN(env.observation_space.shape,
                                     env.action_space.n).to(device)
     else:
-        net = dqn_model.DQNdiscrete(env.observation_space.shape,
+        net = dqn_extra.DQNdiscreteNoisy(env.observation_space.shape,
                                     env.action_space.n).to(device)
 
     env.seed(common.SEED)

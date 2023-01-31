@@ -16,6 +16,20 @@ from ignite.contrib.handlers import tensorboard_logger as tb_logger
 SEED = 123
 
 HYPERPARAMS = {
+    'cartpole': SimpleNamespace(**{
+        'env_name': "CartPole-v1",
+        'stop_reward': 475.0,
+        'run_name': 'cartpole',
+        'replay_size': 100000,
+        'replay_initial': 10000,
+        'target_net_sync': 1000,
+        'epsilon_frames': 10 ** 4,
+        'epsilon_start': 1.0,
+        'epsilon_final': 0.02,
+        'learning_rate': 0.0005,
+        'gamma': 0.99,
+        'batch_size': 128
+    }),
     'pong': SimpleNamespace(**{
         'env_name':         "PongNoFrameskip-v4",
         'stop_reward':      18.0,

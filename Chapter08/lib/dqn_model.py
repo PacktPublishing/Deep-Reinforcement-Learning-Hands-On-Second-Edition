@@ -3,6 +3,22 @@ import torch.nn as nn
 
 import numpy as np
 
+class DQNdiscrete(nn.Module):
+    def __init__(self, input_shape, n_actions):
+        super(DQNdiscrete, self).__init__()
+
+        self.fc = nn.Sequential(
+            nn.Linear(input_shape[0], 128),
+            nn.ReLU(),
+            nn.Linear(128,128),
+            nn.ReLU(),
+            nn.Linear(128, n_actions)
+        )
+
+    def forward(self, x):
+        x = x.float()
+        return self.fc(x)
+
 
 class DQN(nn.Module):
     def __init__(self, input_shape, n_actions):
