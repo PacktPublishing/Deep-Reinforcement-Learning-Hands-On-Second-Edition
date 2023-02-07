@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import gym
+import gym, gym.spaces
 from collections import namedtuple
 import numpy as np
 from tensorboardX import SummaryWriter
@@ -7,7 +7,6 @@ from tensorboardX import SummaryWriter
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
 
 HIDDEN_SIZE = 128
 BATCH_SIZE = 16
@@ -22,7 +21,6 @@ class Net(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_size, n_actions)
         )
-        # the Networks returns logits
 
     def forward(self, x):
         return self.net(x)
@@ -37,7 +35,7 @@ def iterate_batches(env, net, batch_size):
     episode_reward = 0.0
     episode_steps = []
     obs = env.reset()
-    sm = nn.Softmax(dim=1)  #
+    sm = nn.Softmax(dim=1)
     while True:
         obs_v = torch.FloatTensor([obs])
         act_probs_v = sm(net(obs_v))
@@ -45,11 +43,9 @@ def iterate_batches(env, net, batch_size):
         action = np.random.choice(len(act_probs), p=act_probs)
         next_obs, reward, is_done, _ = env.step(action)
         episode_reward += reward
-        step = EpisodeStep(observation=obs, action=action)
-        episode_steps.append(step)
+        episode_steps.append(EpisodeStep(observation=obs, action=action))
         if is_done:
-            e = Episode(reward=episode_reward, steps=episode_steps)
-            batch.append(e)
+            batch.append(Episode(reward=episode_reward, steps=episode_steps))
             episode_reward = 0.0
             episode_steps = []
             next_obs = env.reset()
@@ -59,18 +55,18 @@ def iterate_batches(env, net, batch_size):
         obs = next_obs
 
 
-def filter_batch(batch, percentile): #filters the best and returns them
+def filter_batch(batch, percentile):
     rewards = list(map(lambda s: s.reward, batch))
     reward_bound = np.percentile(rewards, percentile)
     reward_mean = float(np.mean(rewards))
 
     train_obs = []
     train_act = []
-    for reward, steps in batch:
-        if reward < reward_bound:
+    for example in batch:
+        if example.reward < reward_bound:
             continue
-        train_obs.extend(map(lambda step: step.observation, steps))
-        train_act.extend(map(lambda step: step.action, steps))
+        train_obs.extend(map(lambda step: step.observation, example.steps))
+        train_act.extend(map(lambda step: step.action, example.steps))
 
     train_obs_v = torch.FloatTensor(train_obs)
     train_act_v = torch.LongTensor(train_act)
@@ -78,7 +74,7 @@ def filter_batch(batch, percentile): #filters the best and returns them
 
 
 if __name__ == "__main__":
-    env = gym.make("CartPole-v0")
+    env = gym.make("LunarLander-v2")
     # env = gym.wrappers.Monitor(env, directory="mon", force=True)
     obs_size = env.observation_space.shape[0]
     n_actions = env.action_space.n
@@ -86,23 +82,21 @@ if __name__ == "__main__":
     net = Net(obs_size, HIDDEN_SIZE, n_actions)
     objective = nn.CrossEntropyLoss()
     optimizer = optim.Adam(params=net.parameters(), lr=0.01)
-    writer = SummaryWriter(comment="-cartpole")
+    writer = SummaryWriter(comment="-lunarlandar-naive")
 
-    for iter_no, batch in enumerate(iterate_batches(
-            env, net, BATCH_SIZE)):
-        obs_v, acts_v, reward_b, reward_m = \
-            filter_batch(batch, PERCENTILE)
+    for iter_no, batch in enumerate(iterate_batches(env, net, BATCH_SIZE)):
+        obs_v, acts_v, reward_b, reward_m = filter_batch(batch, PERCENTILE)
         optimizer.zero_grad()
         action_scores_v = net(obs_v)
         loss_v = objective(action_scores_v, acts_v)
         loss_v.backward()
         optimizer.step()
-        print("%d: loss=%.3f, reward_mean=%.1f, rw_bound=%.1f" % (
+        print("%d: loss=%.3f, reward_mean=%.1f, reward_bound=%.1f" % (
             iter_no, loss_v.item(), reward_m, reward_b))
         writer.add_scalar("loss", loss_v.item(), iter_no)
         writer.add_scalar("reward_bound", reward_b, iter_no)
         writer.add_scalar("reward_mean", reward_m, iter_no)
-        if reward_m > 199:
+        if reward_m > 200: # An episode is considered a solution if it scores at least 200 points.
             print("Solved!")
             break
     writer.close()
