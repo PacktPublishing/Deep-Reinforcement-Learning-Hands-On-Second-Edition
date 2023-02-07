@@ -48,7 +48,7 @@ def calc_loss_double_dqn(batch, net, tgt_net, gamma,
 if __name__ == "__main__":
     random.seed(common.SEED)
     torch.manual_seed(common.SEED)
-    params = common.HYPERPARAMS['pong']
+    params = common.HYPERPARAMS['cartpole']
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action="store_true", help="Enable cuda")
     parser.add_argument("--double", default=False, action="store_true", help="Enable double dqn")
@@ -56,10 +56,14 @@ if __name__ == "__main__":
     device = torch.device("cuda" if args.cuda else "cpu")
 
     env = gym.make(params.env_name)
-    env = ptan.common.wrappers.wrap_dqn(env)
-    env.seed(common.SEED)
 
-    net = dqn_model.DQN(env.observation_space.shape, env.action_space.n).to(device)
+    if len(env.observation_space.shape) != 1:
+        env.ptan.common.wrappers.wrap_dqn(env)
+        net = dqn_model.DQN(env.observation_space.shape, env.action_space.n).to(device)
+    else:
+        net = dqn_model.DQNdiscrete(env.observation_space.shape,
+                                    env.action_space.n).to(device)
+    env.seed(common.SEED)
 
     tgt_net = ptan.agent.TargetNet(net)
     selector = ptan.actions.EpsilonGreedyActionSelector(epsilon=params.epsilon_start)
