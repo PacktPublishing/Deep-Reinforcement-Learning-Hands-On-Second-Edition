@@ -3,3 +3,5 @@
 runs
 __pycache__
 *.dat
+*.json
+*.mp4
