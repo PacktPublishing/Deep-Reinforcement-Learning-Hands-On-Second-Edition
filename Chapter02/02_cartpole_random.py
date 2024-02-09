@@ -1,8 +1,8 @@
-import gym
+import gymnasium as gym
 
 
 if __name__ == "__main__":
-    env = gym.make("CartPole-v0")
+    env = gym.make("CartPole-v1")
 
     total_reward = 0.0
     total_steps = 0
@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     while True:
         action = env.action_space.sample()
-        obs, reward, done, _ = env.step(action)
+        observation, reward, done, truncated, info = env.step(action)
         total_reward += reward
         total_steps += 1
         if done:
