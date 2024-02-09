@@ -1,31 +1,26 @@
-# Deep-Reinforcement-Learning-Hands-On-Second-Edition
-Deep-Reinforcement-Learning-Hands-On-Second-Edition, published by Packt
+# Deep-Reinforcement-Learning
+Forked from Deep-Reinforcement-Learning-Hands-On-Second-Edition, published by Packt  
+Практика для курса по обучению с подкреплением. 
+В отличии от оригинальных примеров кода, вместо заброшенного OpenAI gym используется поддерживаемый Farama gymnasium.   
+На занятиях мы не сможем разобрать все примеры, но постараемся создать фундамент для самостоятельного освоения RL. 
 
-## Code branches
-The repository is maintained to keep dependency versions up-to-date. 
-This requires efforts and time to test all the examples on new versions, so, be patient.
 
-The logic is following: there are several branches of the code, corresponding to 
-major pytorch version code was tested. Due to incompatibilities in pytorch and other components,
-**code in the printed book might differ from the code in the repo**.
+## Начало работы 
 
-At the moment, there are the following branches available:
-* `master`: contains the code with the latest pytorch which was tested. At the moment, it is pytorch 1.7.
-* `torch-1.3-book`: code printed in the book with minor bug fixes. Uses pytorch=1.3 which 
-is available only on conda repos.
-* `torch-1.7`: pytorch 1.7. This branch was tested and merged into master.
+КРАЙНЕ РЕКОМЕНДУЕТСЯ использовать ОС Ubuntu или Mac, т.к. библиотека gymnasium официально на Windows не поддерживается.   
+Обязтаельно сделайте свой форк и дальше работайте со своим репозиторием. 
+Сроки и объем выполненных заданий будут оцениваться по Вашим коммитам. 
 
-All the branches uses python 3.7, more recent versions weren't tested.
+```shell
+git clone  https://github.com/yourname/Deep-Reinforcement-Learning
+cd Deep-Reinforcement-Learning
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt 
+```
 
-## Dependencies installation
-
-Anaconda is recommended for virtual environment creation.
-Once installed, the following steps will install everything needed:
-
-* change directory to book repository dir: `cd Deep-Reinforcement-Learning-Hands-On-Second-Edition`
-* create virtual environment with `conda create -n rlbook python=3.7`
-* activate it: `conda activate rlbook`
-* install pytorch (update CUDA version according to your CUDA): `conda install pytorch==1.7 torchvision torchaudio cudatoolkit=10.2 -c pytorch`
-* install rest of dependencies: `pip install requirements.txt`
-
-Now you're ready to launch and experiment with examples!
+## Семинар 1. Знакомство со средой
+Пример для запуска кода
+```shell
+python Chapter02/01_agent_anatomy.py
+```
