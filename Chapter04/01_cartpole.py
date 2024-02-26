@@ -3,13 +3,10 @@ from gymnasium.wrappers import RecordVideo
 from collections import namedtuple
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
 import pdb
-
 
 HIDDEN_SIZE = 128
 BATCH_SIZE = 16
@@ -64,6 +61,7 @@ def iterate_batches(env, net, batch_size):
             next_obs = env.reset()
             next_obs = next_obs[0]
             if len(batch) == batch_size:
+                breakpoint()
                 yield batch
                 batch = []
         obs = next_obs
@@ -76,7 +74,7 @@ def filter_batch(batch, percentile):
 
     train_obs = []
     train_act = []
-
+    
     for reward, steps in batch:
         if reward < reward_bound:
             continue
@@ -105,6 +103,7 @@ if __name__ == "__main__":
     writer = SummaryWriter(comment="-cartpole")
 
     for iter_no, batch in enumerate(iterate_batches(env, net, BATCH_SIZE)):
+        breakpoint()
 
         obs_v, acts_v, reward_b, reward_m = filter_batch(batch, PERCENTILE)
         optimizer.zero_grad()
@@ -116,7 +115,7 @@ if __name__ == "__main__":
         # update the parameters
         optimizer.step()
 
-        print(f"%{iter_no}: loss={loss_v.item()}, reward_mean={reward_m}, rw_bound={reward_b}")
+        print(f"{iter_no}: loss={loss_v.item()}, reward_mean={reward_m}, rw_bound={reward_b}")
         writer.add_scalar("loss", loss_v.item(), iter_no)
         writer.add_scalar("reward_bound", reward_b, iter_no)
         writer.add_scalar("reward_mean", reward_m, iter_no)

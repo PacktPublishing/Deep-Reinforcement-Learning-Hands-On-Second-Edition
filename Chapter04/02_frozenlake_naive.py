@@ -2,7 +2,7 @@
 import gym, gym.spaces
 from collections import namedtuple
 import numpy as np
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 import torch
 import torch.nn as nn
@@ -90,7 +90,7 @@ def filter_batch(batch, percentile):
 
 
 if __name__ == "__main__":
-    env = DiscreteOneHotWrapper(gym.make("FrozenLake-v0"))
+    env = DiscreteOneHotWrapper(gym.make("FrozenLake-v1"))
     # env = gym.wrappers.Monitor(env, directory="mon", force=True)
     obs_size = env.observation_space.shape[0]
     n_actions = env.action_space.n
