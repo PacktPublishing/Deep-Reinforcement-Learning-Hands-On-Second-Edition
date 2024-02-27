@@ -61,7 +61,6 @@ def iterate_batches(env, net, batch_size):
             next_obs = env.reset()
             next_obs = next_obs[0]
             if len(batch) == batch_size:
-                breakpoint()
                 yield batch
                 batch = []
         obs = next_obs
@@ -103,8 +102,6 @@ if __name__ == "__main__":
     writer = SummaryWriter(comment="-cartpole")
 
     for iter_no, batch in enumerate(iterate_batches(env, net, BATCH_SIZE)):
-        breakpoint()
-
         obs_v, acts_v, reward_b, reward_m = filter_batch(batch, PERCENTILE)
         optimizer.zero_grad()
         action_scores_v = net(obs_v)
