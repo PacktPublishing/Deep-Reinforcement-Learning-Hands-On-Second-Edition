@@ -3,3 +3,6 @@
 runs
 __pycache__
 *.dat
+*.json
+*.mp4
+mnist_train
